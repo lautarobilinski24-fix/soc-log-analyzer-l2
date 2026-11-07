@@ -1,0 +1,1744 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SOC Log Analyzer L2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>:root{
+  --bg:#0b1020; --bg2:#0f1629; --panel:#131c33; --panel2:#18233f; --line:#243150; --line2:#2e3d63;
+  --tx:#e7ecf7; --tx2:#a9b4cc; --tx3:#7383a3; --acc:#5b8cff; --acc2:#7aa2ff;
+  --crit:#ef4444; --high:#f97316; --med:#eab308; --low:#3b82f6; --ok:#22c55e;
+  --r:14px; --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--tx);font:14px/1.5 Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+a{color:var(--acc2)}
+button{font:inherit;cursor:pointer}
+.mono{font-family:var(--mono);font-size:12px}
+.muted{color:var(--tx2)} .dim{color:var(--tx3)}
+header.top{position:sticky;top:0;z-index:20;background:rgba(11,16,32,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.topbar{display:flex;align-items:center;gap:12px;padding:10px 18px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;letter-spacing:.2px}
+.brand .logo{width:30px;height:30px;border-radius:9px;background:linear-gradient(135deg,#5b8cff,#8b5cf6);display:grid;place-items:center}
+.brand small{display:block;font-weight:500;color:var(--tx3);font-size:11px;letter-spacing:.3px}
+.spacer{flex:1}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;border:1px solid var(--line2);background:var(--panel);color:var(--tx2);font-size:12px;white-space:nowrap}
+.chip .dot{width:7px;height:7px;border-radius:50%;background:var(--tx3)}
+.chip.on .dot{background:var(--ok)}
+nav.tabs{display:flex;gap:4px;padding:0 14px;overflow-x:auto;scrollbar-width:none}
+nav.tabs::-webkit-scrollbar{display:none}
+nav.tabs a{display:flex;align-items:center;gap:7px;padding:10px 12px;color:var(--tx2);text-decoration:none;border-bottom:2px solid transparent;white-space:nowrap;font-weight:500}
+nav.tabs a .n{font-size:11px;color:var(--tx3);font-family:var(--mono)}
+nav.tabs a.active{color:var(--tx);border-color:var(--acc)}
+nav.tabs a.disabled{opacity:.4;pointer-events:none}
+main{max-width:1320px;margin:0 auto;padding:22px 18px 80px}
+h1{font-size:22px;margin:0 0 4px} h2{font-size:17px;margin:0 0 12px} h3{font-size:15px;margin:0 0 8px}
+.sub{color:var(--tx2);margin:0 0 18px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px}
+.grid{display:grid;gap:14px}
+.g2{grid-template-columns:repeat(2,minmax(0,1fr))} .g3{grid-template-columns:repeat(3,minmax(0,1fr))} .g4{grid-template-columns:repeat(4,minmax(0,1fr))} .g6{grid-template-columns:repeat(6,minmax(0,1fr))}
+@media(max-width:1000px){.g4,.g6{grid-template-columns:repeat(3,minmax(0,1fr))}.g3{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:700px){.g2,.g3{grid-template-columns:1fr}.g4,.g6{grid-template-columns:repeat(2,minmax(0,1fr))}main{padding:16px 12px 80px}}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:9px 14px;border-radius:10px;border:1px solid var(--line2);background:var(--panel2);color:var(--tx);font-weight:600}
+.btn:hover{border-color:var(--acc)}
+.btn.primary{background:var(--acc);border-color:var(--acc);color:#fff}
+.btn.primary:hover{background:var(--acc2)}
+.btn.ai{background:linear-gradient(135deg,#6d5bff,#a855f7);border:0;color:#fff}
+.btn.sm{padding:5px 10px;font-size:12px;border-radius:8px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+input[type=text],input[type=password],select,textarea{background:var(--bg2);border:1px solid var(--line2);color:var(--tx);border-radius:9px;padding:8px 10px;font:inherit;min-width:0}
+textarea{width:100%;resize:vertical}
+label.f{display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--tx2)}
+/* dropzone */
+.drop{border:2px dashed var(--line2);border-radius:18px;padding:38px 20px;text-align:center;background:linear-gradient(180deg,rgba(91,140,255,.06),transparent);transition:.15s}
+.drop.over{border-color:var(--acc);background:rgba(91,140,255,.12)}
+.drop .ic{font-size:40px;line-height:1}
+/* kpis */
+.kpi{padding:14px 16px}
+.kpi .v{font-size:26px;font-weight:700;letter-spacing:-.5px}
+.kpi .l{color:var(--tx3);font-size:12px;text-transform:uppercase;letter-spacing:.6px}
+.kpi.crit .v{color:var(--crit)} .kpi.high .v{color:var(--high)}
+/* severity */
+.sev{display:inline-flex;align-items:center;gap:5px;padding:2px 9px;border-radius:999px;font-size:11.5px;font-weight:700;letter-spacing:.2px;white-space:nowrap}
+.sev.Crítico{background:rgba(239,68,68,.16);color:#ff8a8a;border:1px solid rgba(239,68,68,.45)}
+.sev.Alto{background:rgba(249,115,22,.15);color:#ffb070;border:1px solid rgba(249,115,22,.45)}
+.sev.Medio{background:rgba(234,179,8,.14);color:#f5d25b;border:1px solid rgba(234,179,8,.4)}
+.sev.Bajo{background:rgba(59,130,246,.15);color:#8db8ff;border:1px solid rgba(59,130,246,.4)}
+.tag{display:inline-block;padding:1px 8px;border-radius:6px;background:var(--panel2);border:1px solid var(--line2);color:var(--tx2);font-size:11.5px;margin:2px 4px 2px 0}
+.tag.m{font-family:var(--mono);color:#c4b5fd;border-color:#4c3f8f}
+/* tables */
+.tw{overflow:auto;border:1px solid var(--line);border-radius:12px}
+table.t{width:100%;border-collapse:collapse;font-size:12.5px}
+table.t th{position:sticky;top:0;background:var(--panel2);text-align:left;font-weight:600;color:var(--tx2);padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+table.t td{padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+table.t tr:hover td{background:rgba(91,140,255,.05)}
+table.t tr.flag td:first-child{box-shadow:inset 3px 0 0 var(--high)}
+table.t tr.flag.Crítico td:first-child{box-shadow:inset 3px 0 0 var(--crit)}
+table.t td.wrap{max-width:420px;word-break:break-word}
+table.t tr.click{cursor:pointer}
+.pager{display:flex;align-items:center;gap:8px;justify-content:flex-end;margin-top:10px;color:var(--tx2);font-size:12px}
+/* incidents */
+.inc{border:1px solid var(--line);border-radius:var(--r);background:var(--panel);margin-bottom:14px;overflow:hidden}
+.inc>.hd{display:flex;gap:12px;align-items:flex-start;padding:14px 16px;cursor:pointer}
+.inc>.hd .id{font-family:var(--mono);font-weight:700;color:var(--acc2);font-size:13px;padding-top:2px}
+.inc>.hd .tt{flex:1;min-width:0}
+.inc>.hd .tt b{display:block;font-size:15px}
+.inc>.bd{padding:0 16px 16px;display:none}
+.inc.open>.bd{display:block}
+.inc.Crítico{border-left:4px solid var(--crit)} .inc.Alto{border-left:4px solid var(--high)} .inc.Medio{border-left:4px solid var(--med)} .inc.Bajo{border-left:4px solid var(--low)}
+.stages{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.stages span{font-size:11px;padding:2px 8px;border-radius:6px;background:rgba(91,140,255,.1);color:var(--acc2)}
+.stages span+span:before{content:'→ ';color:var(--tx3)}
+.find{border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-top:10px;background:var(--bg2)}
+.find .h{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px}
+.find .h .fid{font-family:var(--mono);font-size:12px;color:var(--tx3)}
+.find .h b{font-size:13.5px}
+.find p{margin:4px 0;color:var(--tx2);font-size:13px}
+.evlink{font-family:var(--mono);font-size:11.5px;color:var(--acc2);background:rgba(91,140,255,.1);border:0;border-radius:5px;padding:1px 6px;margin:2px 3px 2px 0}
+.callout{border-radius:12px;padding:14px 16px;background:rgba(91,140,255,.08);border:1px solid rgba(91,140,255,.35)}
+.callout.warn{background:rgba(249,115,22,.08);border-color:rgba(249,115,22,.4)}
+.callout.ai{background:rgba(168,85,247,.08);border-color:rgba(168,85,247,.4)}
+.filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.fchip{padding:6px 12px;border-radius:999px;border:1px solid var(--line2);background:var(--panel);color:var(--tx2);font-size:12.5px;font-weight:600}
+.fchip.on{background:var(--acc);border-color:var(--acc);color:#fff}
+.fchip .c{opacity:.7;margin-left:4px}
+/* charts */
+.chart{position:relative;min-height:120px}
+.chart svg{display:block;width:100%;height:auto;overflow:visible}
+.chart .lg{display:flex;flex-wrap:wrap;gap:10px;font-size:12px;color:var(--tx2);margin-top:8px}
+.chart .lg i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.hit{cursor:pointer;transition:opacity .12s}
+.hit:hover{opacity:.8}
+#tip{position:fixed;z-index:100;pointer-events:none;background:#0a0f1e;border:1px solid var(--line2);border-radius:9px;padding:7px 10px;font-size:12px;box-shadow:0 8px 24px rgba(0,0,0,.4);display:none;max-width:320px}
+/* modal */
+.modal{position:fixed;inset:0;background:rgba(3,6,15,.7);z-index:50;display:none;align-items:center;justify-content:center;padding:16px}
+.modal.open{display:flex}
+.modal .box{background:var(--panel);border:1px solid var(--line2);border-radius:16px;max-width:820px;width:100%;max-height:88vh;overflow:auto;padding:20px}
+.kv{display:grid;grid-template-columns:180px 1fr;gap:6px 14px;font-size:13px}
+.kv div:nth-child(odd){color:var(--tx3)}
+.kv div:nth-child(even){font-family:var(--mono);font-size:12px;word-break:break-word}
+@media(max-width:600px){.kv{grid-template-columns:1fr}}
+/* report */
+.doc{background:#fff;color:#1b2333;border-radius:14px;padding:38px 44px;max-width:900px;margin:0 auto;font-size:13.5px;line-height:1.6}
+.doc h1{font-size:24px;color:#0b1a3a} .doc h2{font-size:17px;color:#0b1a3a;border-bottom:2px solid #e3e8f2;padding-bottom:6px;margin-top:28px}
+.doc h3{font-size:14.5px;color:#13306b;margin-top:16px}
+.doc .meta{color:#5a6886;font-size:12.5px}
+.doc table{width:100%;border-collapse:collapse;font-size:12px;margin:8px 0}
+.doc th{background:#eef2fa;text-align:left;padding:6px 8px;border:1px solid #dbe2ef}
+.doc td:first-child{white-space:nowrap}
+.doc td{padding:6px 8px;border:1px solid #e3e8f2;vertical-align:top}
+.doc .sev{border:0}
+.doc .sev.Crítico{background:#fde2e2;color:#b91c1c}.doc .sev.Alto{background:#ffedd5;color:#c2410c}.doc .sev.Medio{background:#fef3c7;color:#a16207}.doc .sev.Bajo{background:#dbeafe;color:#1d4ed8}
+.doc [contenteditable]:focus{outline:2px solid #a5b4fc;border-radius:4px}
+.doc .aiTag{display:inline-block;font-size:10.5px;background:#f3e8ff;color:#7e22ce;border-radius:5px;padding:1px 6px;margin-left:6px;vertical-align:2px}
+@media(max-width:700px){.doc{padding:22px 18px}}
+/* chat */
+.chat{display:flex;flex-direction:column;gap:10px;max-height:56vh;overflow:auto;padding:4px}
+.msg{padding:10px 13px;border-radius:12px;max-width:88%;white-space:pre-wrap;word-break:break-word}
+.msg.u{align-self:flex-end;background:var(--acc);color:#fff}
+.msg.a{align-self:flex-start;background:var(--panel2);border:1px solid var(--line2)}
+.msg.a .warn{color:#ffb070;font-size:12px;display:block;margin-top:6px}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:sp .8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#0a0f1e;border:1px solid var(--line2);padding:10px 16px;border-radius:12px;z-index:200;display:none;max-width:90vw}
+.empty{padding:50px 20px;text-align:center;color:var(--tx3)}
+ul.clean{margin:6px 0;padding-left:18px} ul.clean li{margin:3px 0}
+.legend-sev{display:grid;grid-template-columns:auto 1fr;gap:8px 12px;align-items:start;font-size:13px}
+#fileChip{max-width:100%;overflow:hidden;text-overflow:ellipsis;display:inline-block}
+@media(max-width:700px){.topbar .spacer{display:none}.topbar{gap:8px}#fileChip{max-width:calc(100vw - 40px)}}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="topbar">
+    <div class="brand"><div class="logo"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6z"/><path d="M9 12l2 2 4-4"/></svg></div>
+      <div>SOC Log Analyzer <span style="color:var(--acc2)">L2</span><small>Reto práctico · Analista SOC Nivel 2</small></div></div>
+    <div class="spacer"></div>
+    <span class="chip" id="fileChip"><span class="dot"></span>Sin archivo</span>
+    <a class="chip" id="aiChip" href="#" style="text-decoration:none" title="Configurar IA"><span class="dot"></span>IA</a>
+  </div>
+  <nav class="tabs" id="tabs"></nav>
+</header>
+<main id="view"></main>
+<div class="modal" id="modal"><div class="box" id="modalBox"></div></div>
+<div id="tip"></div><div class="toast" id="toast"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script>const SAMPLE_XLSX="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";</script>
+<script>/* ===== Lector .xlsx nativo (sin dependencias) =====
+   Un .xlsx es un ZIP con XML adentro. Se descomprime con
+   DecompressionStream('deflate-raw') del navegador. */
+const XLSXReader = (() => {
+  const u16 = (b, o) => b[o] | (b[o + 1] << 8);
+  const u32 = (b, o) => (b[o] | (b[o + 1] << 8) | (b[o + 2] << 16) | (b[o + 3] << 24)) >>> 0;
+
+  async function inflateRaw(data) {
+    const ds = new DecompressionStream('deflate-raw');
+    const stream = new Blob([data]).stream().pipeThrough(ds);
+    return new Uint8Array(await new Response(stream).arrayBuffer());
+  }
+
+  async function unzip(buf) {
+    const b = new Uint8Array(buf);
+    let eocd = -1;
+    for (let i = b.length - 22; i >= Math.max(0, b.length - 65557); i--) {
+      if (u32(b, i) === 0x06054b50) { eocd = i; break; }
+    }
+    if (eocd < 0) throw new Error('El archivo no es un .xlsx válido (ZIP no reconocido).');
+    const count = u16(b, eocd + 10);
+    let p = u32(b, eocd + 16);
+    const files = {};
+    const dec = new TextDecoder();
+    for (let i = 0; i < count; i++) {
+      if (u32(b, p) !== 0x02014b50) break;
+      const method = u16(b, p + 10);
+      const csize = u32(b, p + 20);
+      const nlen = u16(b, p + 28), elen = u16(b, p + 30), clen = u16(b, p + 32);
+      const lho = u32(b, p + 42);
+      const name = dec.decode(b.subarray(p + 46, p + 46 + nlen));
+      p += 46 + nlen + elen + clen;
+      const start = lho + 30 + u16(b, lho + 26) + u16(b, lho + 28);
+      const raw = b.subarray(start, start + csize);
+      files[name] = { method, raw };
+    }
+    return {
+      names: Object.keys(files),
+      async text(name) {
+        const f = files[name];
+        if (!f) return null;
+        const data = f.method === 0 ? f.raw : await inflateRaw(f.raw);
+        return dec.decode(data);
+      }
+    };
+  }
+
+  const colIdx = (ref) => {
+    const m = /^([A-Z]+)/.exec(ref || '');
+    if (!m) return -1;
+    let n = 0;
+    for (const ch of m[1]) n = n * 26 + (ch.charCodeAt(0) - 64);
+    return n - 1;
+  };
+
+  const xml = (s) => new DOMParser().parseFromString(s, 'application/xml');
+  // los XML pueden venir con prefijo de namespace (x:sheet), se busca por nombre local
+  const T = (el, n) => el.getElementsByTagNameNS('*', n);
+  const tagText = (el) => {
+    // concatena todos los <t> (rich text) o el texto directo
+    const ts = T(el, 't');
+    if (ts.length) return Array.from(ts).map(t => t.textContent).join('');
+    return el.textContent;
+  };
+
+  async function read(buf) {
+    const zip = await unzip(buf);
+    const wb = xml(await zip.text('xl/workbook.xml'));
+    const relsTxt = await zip.text('xl/_rels/workbook.xml.rels');
+    const rels = {};
+    if (relsTxt) {
+      for (const r of Array.from(T(xml(relsTxt), 'Relationship'))) {
+        rels[r.getAttribute('Id')] = r.getAttribute('Target');
+      }
+    }
+    const sheets = Array.from(T(wb, 'sheet')).map(s => {
+      const rid = s.getAttribute('r:id') || s.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships', 'id');
+      let target = rels[rid] || '';
+      target = target.replace(/^\/?xl\//, '').replace(/^\//, '');
+      return { name: s.getAttribute('name'), path: 'xl/' + target };
+    });
+    const ssTxt = await zip.text('xl/sharedStrings.xml');
+    const shared = ssTxt ? Array.from(T(xml(ssTxt), 'si')).map(tagText) : [];
+
+    const out = [];
+    for (const sh of sheets) {
+      const txt = await zip.text(sh.path);
+      if (!txt) continue;
+      const doc = xml(txt);
+      const rows = [];
+      for (const row of Array.from(T(doc, 'row'))) {
+        const arr = [];
+        let auto = 0;
+        for (const c of Array.from(T(row, 'c'))) {
+          let ci = colIdx(c.getAttribute('r'));
+          if (ci < 0) ci = auto;
+          auto = ci + 1;
+          const t = c.getAttribute('t');
+          const vEl = T(c, 'v')[0];
+          let val = '';
+          if (t === 's') val = shared[parseInt(vEl ? vEl.textContent : '0', 10)] ?? '';
+          else if (t === 'inlineStr') { const is = T(c, 'is')[0]; val = is ? tagText(is) : ''; }
+          else if (t === 'b') val = vEl && vEl.textContent === '1' ? 'TRUE' : 'FALSE';
+          else if (vEl) {
+            val = vEl.textContent;
+            if (t !== 'str' && t !== 'e' && val !== '' && !isNaN(val)) val = Number(val);
+          }
+          arr[ci] = val;
+        }
+        rows.push(arr);
+      }
+      out.push({ name: sh.name, rows });
+    }
+    return out;
+  }
+
+  return { read };
+})();
+
+/* ===== Motor de análisis SOC L2 =====
+   Reglas deterministas: cada hallazgo guarda los Log_ID que lo prueban.
+   No se genera ningún hallazgo sin eventos de respaldo. */
+const Engine = (() => {
+  const SEV = ['—', 'Bajo', 'Medio', 'Alto', 'Crítico'];
+  const SEVN = { 'Bajo': 1, 'Medio': 2, 'Alto': 3, 'Crítico': 4 };
+  const CATS = ['Fuerza bruta', 'Inicios sospechosos', 'Escalamiento', 'Comandos y procesos', 'Movimiento lateral', 'Otras anomalías'];
+  const MIN = 60000;
+
+  /* ---------- Normalización de columnas ---------- */
+  const ALIASES = {
+    id: ['logid', 'id', 'eventuid', 'recordid', 'recordnumber'],
+    ts: ['timestamp', 'time', 'date', 'datetime', 'time', 'eventtime', 'fecha', 'fechahora'],
+    host: ['hostname', 'host', 'computer', 'computername', 'device', 'equipo'],
+    eid: ['eventid', 'eventcode', 'id_evento', 'eventtype'],
+    user: ['user', 'username', 'account', 'accountname', 'usuario', 'targetusername'],
+    ip: ['sourceip', 'srcip', 'ip', 'clientip', 'ipaddress', 'ip_origen', 'iporigen'],
+    dest: ['destination', 'dest', 'dst', 'target', 'destino'],
+    src: ['logsource', 'source', 'channel', 'logname', 'fuente'],
+    desc: ['eventdescription', 'description', 'message', 'descripcion', 'event'],
+    cmd: ['processcommandline', 'commandline', 'process', 'cmd', 'linea_comando'],
+    result: ['result', 'status', 'outcome', 'resultado'],
+    sev: ['severity', 'level', 'priority', 'severidad'],
+  };
+  const norm = s => String(s ?? '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+  function mapHeaders(headers) {
+    const map = {};
+    const nh = headers.map(norm);
+    for (const [k, al] of Object.entries(ALIASES)) {
+      for (const a of al) {
+        const i = nh.indexOf(norm(a));
+        if (i >= 0 && !Object.values(map).includes(i)) { map[k] = i; break; }
+      }
+    }
+    return map;
+  }
+
+  function parseTs(v) {
+    if (v === null || v === undefined || v === '') return NaN;
+    if (typeof v === 'number') return Math.round((v - 25569) * 86400000); // serial Excel
+    const m = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?/.exec(String(v).trim());
+    if (m) return Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +(m[6] || 0));
+    const m2 = /^(\d{1,2})\/(\d{1,2})\/(\d{4})[ T](\d{1,2}):(\d{2})(?::(\d{2}))?/.exec(String(v).trim());
+    if (m2) return Date.UTC(+m2[3], +m2[2] - 1, +m2[1], +m2[4], +m2[5], +(m2[6] || 0));
+    const d = Date.parse(v);
+    return isNaN(d) ? NaN : d;
+  }
+  const pad = n => String(n).padStart(2, '0');
+  const fmtTs = t => { const d = new Date(t); return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}`; };
+  const fmtHM = t => { const d = new Date(t); return `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`; };
+
+  /** rows: array de arrays (primera fila = encabezados) */
+  function normalize(rows) {
+    let hi = rows.findIndex(r => r && r.filter(x => x !== undefined && x !== '').length >= 3);
+    if (hi < 0) throw new Error('No se encontraron encabezados en la hoja.');
+    const headers = rows[hi].map(x => String(x ?? ''));
+    const map = mapHeaders(headers);
+    const missing = ['ts', 'eid'].filter(k => map[k] === undefined);
+    if (missing.length) throw new Error('Faltan columnas obligatorias: ' + missing.map(k => k === 'ts' ? 'Timestamp' : 'Event_ID').join(', '));
+    const get = (r, k) => map[k] === undefined ? '' : (r[map[k]] ?? '');
+    const evs = [];
+    rows.slice(hi + 1).forEach((r, i) => {
+      if (!r || !r.some(x => x !== undefined && x !== '')) return;
+      const ts = parseTs(get(r, 'ts'));
+      const e = {
+        id: String(get(r, 'id') || `ROW-${i + 2}`),
+        ts, tsStr: isNaN(ts) ? String(get(r, 'ts')) : fmtTs(ts),
+        host: String(get(r, 'host')).trim(),
+        eid: String(get(r, 'eid')).trim(),
+        user: String(get(r, 'user')).trim(),
+        ip: String(get(r, 'ip')).trim(),
+        dest: String(get(r, 'dest')).trim(),
+        src: String(get(r, 'src')).trim(),
+        desc: String(get(r, 'desc')).trim(),
+        cmd: String(get(r, 'cmd')).trim(),
+        result: String(get(r, 'result')).trim(),
+        sev: String(get(r, 'sev')).trim() || 'Informational',
+        raw: headers.reduce((o, h, j) => (o[h] = r[j] ?? '', o), {}),
+      };
+      evs.push(e);
+    });
+    evs.sort((a, b) => (a.ts || 0) - (b.ts || 0));
+    evs.forEach((e, i) => e.idx = i);
+    return { headers, map, events: evs };
+  }
+
+  /* ---------- Utilidades ---------- */
+  const isIP = s => /^\d{1,3}(\.\d{1,3}){3}$/.test(s);
+  const ipOf = s => { const m = /(\d{1,3}(?:\.\d{1,3}){3})/.exec(s || ''); return m ? m[1] : ''; };
+  function isPrivate(ip) {
+    if (!isIP(ip)) return true; // sin IP: no se trata como externa
+    const [a, b] = ip.split('.').map(Number);
+    return a === 10 || a === 127 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 169 && b === 254);
+  }
+  const isExt = ip => isIP(ip) && !isPrivate(ip);
+  const logonType = d => { const m = /LogonType\s*=\s*(\d+)/i.exec(d || ''); return m ? +m[1] : null; };
+  const srcHost = d => { const m = /source\s*=\s*([\w.-]+)/i.exec(d || ''); return m ? m[1] : ''; };
+  const shortUser = u => (u || '').split('\\').pop();
+  const isSvcAcct = u => /svc|service|backup|sql|iis|apppool/i.test(u || '');
+  const isWorkstation = h => /^(ws|pc|lt|laptop|desktop|nb)[-_]?\d*/i.test(h || '');
+  const text = e => `${e.cmd} ${e.desc}`;
+  const isProxy = e => /proxy/i.test(e.src) || /^PROXY/i.test(e.eid);
+  const isWeb = e => /iis|apache|nginx|http|web/i.test(e.src) || /^HTTP/i.test(e.eid);
+  const fmtBytes = n => n >= 1e9 ? (n / 1e9).toFixed(2) + ' GB' : n >= 1e6 ? (n / 1e6).toFixed(1) + ' MB' : n >= 1e3 ? (n / 1e3).toFixed(1) + ' KB' : n + ' B';
+
+  function clusters(list, gapMs) {
+    const out = [];
+    let cur = [];
+    for (const e of list) {
+      if (cur.length && e.ts - cur[cur.length - 1].ts > gapMs) { out.push(cur); cur = []; }
+      cur.push(e);
+    }
+    if (cur.length) out.push(cur);
+    return out;
+  }
+  const groupBy = (arr, fn) => arr.reduce((m, x) => { const k = fn(x); (m[k] = m[k] || []).push(x); return m; }, {});
+  const uniq = a => [...new Set(a.filter(Boolean))];
+
+  /* ---------- MITRE ---------- */
+  const M = {
+    T1110_001: ['T1110.001', 'Password Guessing', 'Credential Access'],
+    T1110_003: ['T1110.003', 'Password Spraying', 'Credential Access'],
+    T1078: ['T1078', 'Valid Accounts', 'Initial Access'],
+    T1133: ['T1133', 'External Remote Services', 'Initial Access'],
+    T1021_001: ['T1021.001', 'Remote Desktop Protocol', 'Lateral Movement'],
+    T1021_002: ['T1021.002', 'SMB/Windows Admin Shares', 'Lateral Movement'],
+    T1059_001: ['T1059.001', 'PowerShell', 'Execution'],
+    T1059_003: ['T1059.003', 'Windows Command Shell', 'Execution'],
+    T1027: ['T1027', 'Obfuscated Files or Information', 'Defense Evasion'],
+    T1036: ['T1036', 'Masquerading', 'Defense Evasion'],
+    T1069: ['T1069.001', 'Local Groups Discovery', 'Discovery'],
+    T1135: ['T1135', 'Network Share Discovery', 'Discovery'],
+    T1033: ['T1033', 'System Owner/User Discovery', 'Discovery'],
+    T1087: ['T1087', 'Account Discovery', 'Discovery'],
+    T1078_PE: ['T1078', 'Valid Accounts (privilegios)', 'Privilege Escalation'],
+    T1098: ['T1098', 'Account Manipulation', 'Persistence'],
+    T1039: ['T1039', 'Data from Network Shared Drive', 'Collection'],
+    T1560: ['T1560.001', 'Archive via Utility', 'Collection'],
+    T1041: ['T1041', 'Exfiltration Over C2 Channel', 'Exfiltration'],
+    T1048: ['T1048', 'Exfiltration Over Alternative Protocol', 'Exfiltration'],
+    T1567: ['T1567', 'Exfiltration Over Web Service', 'Exfiltration'],
+    T1071: ['T1071.001', 'Web Protocols', 'Command and Control'],
+    T1053: ['T1053.005', 'Scheduled Task', 'Persistence'],
+    T1543: ['T1543.003', 'Windows Service', 'Persistence'],
+    T1505: ['T1505.003', 'Web Shell', 'Persistence'],
+    T1190: ['T1190', 'Exploit Public-Facing Application', 'Initial Access'],
+    T1595: ['T1595', 'Active Scanning', 'Reconnaissance'],
+    T1490: ['T1490', 'Inhibit System Recovery', 'Impact'],
+    T1003: ['T1003', 'OS Credential Dumping', 'Credential Access'],
+    T1083: ['T1083', 'File and Directory Discovery', 'Discovery'],
+  };
+  const mitre = (...keys) => keys.map(k => ({ id: M[k][0], name: M[k][1], tactic: M[k][2] }));
+
+  /* ---------- Acciones por tipo de hallazgo ---------- */
+  const ACTIONS = {
+    brute: {
+      investigar: ['Revisar si la IP de origen tuvo logons exitosos (4624) en el mismo período y en otros sistemas.', 'Consultar reputación de la IP de origen en fuentes de Threat Intelligence.'],
+      contener: ['Bloquear la IP de origen en el firewall perimetral.', 'Forzar cambio de contraseña de las cuentas atacadas.'],
+      remediar: ['Aplicar política de bloqueo por intentos fallidos y MFA.', 'Retirar la exposición directa a Internet del servicio atacado.'],
+    },
+    compromise: {
+      investigar: ['Reconstruir toda la actividad de la cuenta desde el logon exitoso.', 'Confirmar con el titular si reconoce el acceso.'],
+      contener: ['Deshabilitar la cuenta y revocar sus sesiones y tickets Kerberos.', 'Aislar los equipos donde la cuenta inició sesión.'],
+      remediar: ['Restablecer credenciales y habilitar MFA.', 'Revisar privilegios asignados a la cuenta (mínimo privilegio).'],
+    },
+    privesc: {
+      investigar: ['Determinar qué privilegios fueron asignados (4672) y qué acciones se ejecutaron con ellos.'],
+      contener: ['Retirar la cuenta de grupos privilegiados mientras dure la investigación.'],
+      remediar: ['Separar cuentas administrativas de las de uso diario (tiering) e implementar PAM.'],
+    },
+    encoded: {
+      investigar: ['Decodificar el parámetro -EncodedCommand (Base64/UTF-16LE) para conocer el payload.', 'Buscar el mismo patrón en el resto del parque (threat hunting).'],
+      contener: ['Aislar el equipo desde el EDR.'],
+      remediar: ['Habilitar Constrained Language Mode, AMSI y logging de PowerShell (4103/4104).'],
+    },
+    discovery: {
+      investigar: ['Correlacionar los comandos de reconocimiento con los accesos posteriores a otros equipos o recursos.'],
+      contener: ['Aislar el equipo si el reconocimiento proviene de una sesión comprometida.'],
+      remediar: ['Crear alertas para comandos de enumeración ejecutados desde sesiones remotas.'],
+    },
+    archive: {
+      investigar: ['Recuperar el archivo comprimido como evidencia y determinar su contenido.', 'Verificar si el archivo fue transferido fuera de la red.'],
+      contener: ['Bloquear la cuenta y el equipo implicados.'],
+      remediar: ['Implementar DLP sobre recursos compartidos sensibles.'],
+    },
+    impact: {
+      investigar: ['Verificar si comenzó el cifrado/borrado de archivos en servidores y estaciones.', 'Identificar el binario o script que ejecutó el borrado de instantáneas.'],
+      contener: ['Aislar de inmediato el equipo y deshabilitar la cuenta ejecutora.', 'Proteger los backups (desconectar repositorios en línea).'],
+      remediar: ['Restaurar desde backups offline/inmutables verificados.', 'Restringir el uso de vssadmin/wbadmin a cuentas autorizadas y alertar su ejecución.'],
+    },
+    credump: {
+      investigar: ['Determinar qué credenciales pudieron extraerse.'],
+      contener: ['Restablecer todas las credenciales expuestas, incluyendo krbtgt si aplica.'],
+      remediar: ['Habilitar Credential Guard y protección LSA (RunAsPPL).'],
+    },
+    webshell: {
+      investigar: ['Revisar logs completos de IIS y el contenido del directorio de subida de archivos.', 'Identificar la vulnerabilidad que permitió subir el archivo.'],
+      contener: ['Aislar el servidor web o retirarlo de publicación.', 'Bloquear la IP atacante en WAF/firewall.'],
+      remediar: ['Eliminar el web shell y reconstruir el servidor desde una imagen limpia.', 'Implementar WAF y validación estricta de archivos subidos.'],
+    },
+    web: {
+      investigar: ['Revisar las respuestas 200 a rutas administrativas y de exportación.'],
+      contener: ['Bloquear la IP de origen en el WAF.'],
+      remediar: ['Proteger /admin y APIs con autenticación fuerte y rate limiting.'],
+    },
+    lateral: {
+      investigar: ['Revisar todo lo que la cuenta hizo en el equipo destino.', 'Buscar más saltos desde el equipo destino.'],
+      contener: ['Aislar equipo origen y destino.', 'Bloquear SMB/RDP entre segmentos que no lo necesitan.'],
+      remediar: ['Segmentar la red y aplicar LAPS para credenciales locales.'],
+    },
+    collection: {
+      investigar: ['Inventariar los archivos accedidos y su clasificación de confidencialidad.'],
+      contener: ['Restringir temporalmente el recurso compartido a solo lectura.'],
+      remediar: ['Aplicar permisos de mínimo privilegio y auditoría de acceso a recursos sensibles.'],
+    },
+    exfil: {
+      investigar: ['Determinar el volumen y contenido transferido y la reputación del destino.', 'Evaluar obligaciones legales de notificación por fuga de datos.'],
+      contener: ['Bloquear el destino en proxy y firewall.', 'Aislar el equipo origen.'],
+      remediar: ['Implementar DLP y límites de subida a destinos no categorizados.'],
+    },
+    persistence: {
+      investigar: ['Obtener hash del binario/script y analizarlo (sandbox/VirusTotal).', 'Identificar cómo llegó el archivo al servidor.'],
+      contener: ['Deshabilitar la tarea programada y el servicio malicioso.', 'Aislar el servidor.'],
+      remediar: ['Eliminar los artefactos y verificar que no existan otros mecanismos de persistencia.', 'Alertar creación de tareas (4698) y servicios (7045) en servidores.'],
+    },
+    beacon: {
+      investigar: ['Revisar conexiones de red del proceso para identificar el servidor de C2.'],
+      contener: ['Bloquear el proceso con EDR y el destino de red.'],
+      remediar: ['Reconstruir el equipo si no se garantiza la erradicación.'],
+    },
+    hygiene: {
+      investigar: ['Validar el inventario de activos y cuentas.'],
+      contener: [],
+      remediar: ['Normalizar nombres de equipos y depurar cuentas de servicio duplicadas.'],
+    },
+  };
+
+  /* ---------- Análisis principal ---------- */
+  function analyze(events, opts = {}) {
+    const cfg = Object.assign({ bruteMin: 5, bruteGapMin: 5, exfilMB: 50, massFiles: 10, corrWindowMin: 90 }, opts);
+    const F = [];
+    let fid = 0;
+    const add = f => {
+      f.id = 'H-' + String(++fid).padStart(2, '0');
+      f.evidence = uniq(f.evidence.map(e => e.idx)).sort((a, b) => a - b);
+      const evs = f.evidence.map(i => events[i]);
+      f.start = Math.min(...evs.map(e => e.ts));
+      f.end = Math.max(...evs.map(e => e.ts));
+      f.hosts = uniq(evs.map(e => e.host));
+      f.users = f.users || uniq(evs.map(e => e.user).filter(u => u && u !== '-'));
+      f.keys = uniq(f.keys || []);
+      f.tags = f.tags || [];
+      f.mitre = f.mitre || [];
+      f.iocs = f.iocs || [];
+      F.push(f);
+      return f;
+    };
+    const compromised = {}; // user -> {ts, host, ip}
+    const usedSuccess = new Set();
+
+    /* R1 · Fuerza bruta / password spraying */
+    const fails = events.filter(e => e.eid === '4625' && isIP(e.ip));
+    for (const [ip, list] of Object.entries(groupBy(fails, e => e.ip))) {
+      for (const c of clusters(list, cfg.bruteGapMin * MIN)) {
+        // umbral menor si el origen es externo (Internet): 3 intentos ya son anómalos
+        if (c.length < (isExt(ip) ? Math.min(3, cfg.bruteMin) : cfg.bruteMin)) continue;
+        const users = uniq(c.map(e => e.user));
+        const lt = logonType(c[0].desc);
+        const rdp = lt === 10 || /rdp/i.test(c[0].desc);
+        const spray = users.length >= 3;
+        const ext = isExt(ip);
+        const targets = uniq(c.map(e => e.dest || e.host));
+        const durMin = Math.max(1, Math.round((c[c.length - 1].ts - c[0].ts) / MIN));
+        const rate = Math.round((c[c.length - 1].ts - c[0].ts) / 1000 / Math.max(1, c.length - 1));
+        const f = add({
+          rule: 'brute', category: 'Fuerza bruta',
+          title: spray ? `Password spraying desde ${ip}` : `Fuerza bruta${rdp ? ' RDP' : ''} contra ${users.join(', ')} desde ${ip}`,
+          severity: ext ? 'Alto' : 'Medio',
+          explanation: `${c.length} inicios de sesión fallidos (4625) desde ${ip}${ext ? ' (IP pública externa)' : ''} contra ${targets.join(', ')} en ${durMin} min (un intento cada ~${rate} s)` +
+            (spray ? `, rotando entre ${users.length} cuentas distintas (${users.map(shortUser).join(', ')}). Pocas contraseñas probadas contra muchas cuentas es el patrón de password spraying.` : `, contra ${users.map(shortUser).join(', ')}${rdp ? ' por RDP (LogonType 10)' : ''}.`),
+          justification: `${ext ? 'Origen externo a la organización' : 'Origen interno'}; volumen y cadencia automatizados (${c.length} intentos en ${durMin} min).`,
+          evidence: c, keys: ['ip:' + ip], users: [],
+          mitre: mitre(spray ? 'T1110_003' : 'T1110_001', ...(rdp ? ['T1133'] : [])), tags: ['credential'],
+          iocs: [{ type: 'IP origen', value: ip }], actionKey: 'brute', meta: { ip, users, rdp, ext },
+        });
+        const succ = events.filter(e => e.eid === '4624' && e.ip === ip && e.ts >= c[0].ts && e.ts <= c[c.length - 1].ts + 30 * MIN);
+        for (const s of succ) {
+          usedSuccess.add(s.idx);
+          compromised[s.user] = compromised[s.user] || { ts: s.ts, host: s.dest || s.host, ip };
+          add({
+            rule: 'compromise', category: 'Inicios sospechosos',
+            title: `Inicio de sesión exitoso de ${shortUser(s.user)} tras ${spray ? 'el spraying' : 'la fuerza bruta'} desde ${ip}`,
+            severity: ext ? 'Alto' : 'Medio',
+            explanation: `Después de ${c.length} intentos fallidos, ${s.id} registra un 4624 exitoso de ${s.user} desde la misma IP ${ip} hacia ${s.dest || s.host}${logonType(s.desc) ? ' (LogonType ' + logonType(s.desc) + ')' : ''}. La credencial fue adivinada: la cuenta está comprometida.`,
+            justification: 'Acceso válido obtenido por un actor no autorizado tras un ataque de credenciales' + (ext ? ' desde Internet.' : '.'),
+            evidence: [s, c[c.length - 1]], keys: ['ip:' + ip, 'user:' + s.user], users: [s.user],
+            mitre: mitre('T1078', ...(rdp ? ['T1133', 'T1021_001'] : [])), tags: ['initial'],
+            iocs: [{ type: 'Cuenta comprometida', value: s.user }], actionKey: 'compromise', meta: { ip, ext, user: s.user },
+          });
+        }
+      }
+    }
+
+    /* R2 · Inicios sospechosos: logon exitoso desde IP externa / fuera de horario */
+    for (const e of events.filter(e => e.eid === '4624' && !usedSuccess.has(e.idx))) {
+      if (isExt(e.ip)) {
+        compromised[e.user] = compromised[e.user] || { ts: e.ts, host: e.dest || e.host, ip: e.ip };
+        add({
+          rule: 'extlogon', category: 'Inicios sospechosos',
+          title: `Inicio de sesión de ${shortUser(e.user)} desde IP externa ${e.ip}`,
+          severity: 'Alto',
+          explanation: `${e.id}: 4624 exitoso de ${e.user} en ${e.dest || e.host} con origen ${e.ip}, una IP pública. Los accesos internos del dataset provienen de 10.x.x.x.`,
+          justification: 'Sesión válida originada fuera de la red corporativa.',
+          evidence: [e], keys: ['ip:' + e.ip, 'user:' + e.user], users: [e.user],
+          mitre: mitre('T1078', 'T1133'), tags: ['initial'], iocs: [{ type: 'IP origen', value: e.ip }], actionKey: 'compromise',
+        });
+      } else if (!isNaN(e.ts)) {
+        const h = new Date(e.ts).getUTCHours();
+        if (h < 6 || h >= 22) add({
+          rule: 'offhours', category: 'Inicios sospechosos',
+          title: `Inicio de sesión fuera de horario de ${shortUser(e.user)}`,
+          severity: 'Medio',
+          explanation: `${e.id}: 4624 de ${e.user} en ${e.host} a las ${fmtHM(e.ts)}, fuera del horario laboral (06–22 h).`,
+          justification: 'Horario atípico para la cuenta; requiere validación con el usuario.',
+          evidence: [e], keys: ['user:' + e.user], users: [e.user], mitre: mitre('T1078'), tags: ['initial'], actionKey: 'compromise',
+        });
+      }
+    }
+
+    /* R3 · Escalamiento de privilegios */
+    for (const e of events.filter(e => e.eid === '4672')) {
+      const c = compromised[e.user];
+      const ext = isExt(e.ip);
+      if (ext || (c && e.ts >= c.ts && e.ts - c.ts <= 120 * MIN)) {
+        add({
+          rule: 'privesc', category: 'Escalamiento',
+          title: `Privilegios especiales asignados a ${shortUser(e.user)} en ${e.host}`,
+          severity: 'Alto',
+          explanation: `${e.id}: evento 4672 (Special privileges assigned to new logon) para ${e.user} en ${e.host}` + (ext ? ` con origen externo ${e.ip}` : '') + (c ? `, ${Math.round((e.ts - c.ts) / MIN)} min después de que la cuenta fuera comprometida` : '') + '. La sesión del atacante obtuvo privilegios administrativos (SeDebug, SeBackup, etc.).',
+          justification: 'Privilegios administrativos en manos de una sesión no legítima.',
+          evidence: [e], keys: ['user:' + e.user, ...(ext ? ['ip:' + e.ip] : [])], users: [e.user],
+          mitre: mitre('T1078_PE'), tags: ['privesc'], actionKey: 'privesc',
+        });
+      }
+    }
+    for (const e of events.filter(e => ['4728', '4732', '4756', '4720'].includes(e.eid))) {
+      add({
+        rule: 'groupadd', category: 'Escalamiento', title: `Cambio de membresía/creación de cuenta (${e.eid}) por ${shortUser(e.user)}`,
+        severity: 'Alto', explanation: `${e.id}: ${e.desc}`, justification: 'Modificación de privilegios o cuentas.',
+        evidence: [e], keys: ['user:' + e.user], mitre: mitre('T1098'), tags: ['privesc'], actionKey: 'privesc',
+      });
+    }
+
+    /* R4 · Comandos y procesos sospechosos */
+    const PAT = [
+      { k: 'impact', re: /vssadmin(\.exe)?\s+delete\s+shadows|wbadmin(\.exe)?\s+delete|bcdedit.*recoveryenabled\s+no|wmic\s+shadowcopy\s+delete/i, sev: 'Crítico', title: 'Borrado de instantáneas de volumen (Shadow Copies)', tags: ['impact'], m: ['T1490'],
+        exp: 'elimina todas las copias de seguridad locales (Volume Shadow Copies) de forma silenciosa. Es la acción típica que ejecuta un ransomware justo antes de cifrar, para impedir la recuperación.' },
+      { k: 'credump', re: /mimikatz|sekurlsa|procdump.*lsass|comsvcs(\.dll)?.*minidump/i, sev: 'Crítico', title: 'Volcado de credenciales', tags: ['credential'], m: ['T1003'], exp: 'intenta extraer credenciales de la memoria de LSASS.' },
+      { k: 'encoded', re: /powershell(\.exe)?[^\n]*\s-(e|ec|enc|encodedcommand)\b/i, sev: 'Alto', title: 'PowerShell con comando codificado (-EncodedCommand)', tags: ['execution'], m: ['T1059_001', 'T1027'],
+        exp: 'ejecuta PowerShell con -NoProfile y un comando en Base64. La codificación oculta el payload real y es una técnica común de evasión.' },
+      { k: 'archive', re: /\b(7z|7za|rar|winrar|tar|zip|makecab)(\.exe)?\s+(a\b|-a\b|-c\b|.*-a\s+-c)|compress-archive/i, sev: 'Medio', title: 'Compresión de datos (staging)', tags: ['collection'], m: ['T1560'],
+        exp: 'comprime archivos en un contenedor (staging). Se usa para preparar datos antes de exfiltrarlos.' },
+      { k: 'discovery', re: /\bnet1?(\.exe)?\s+(view|user|group|localgroup|share)\b|Get-LocalGroupMember|Get-SmbShare|Get-ADUser|Get-ADComputer|nltest|Invoke-ShareFinder|\bquery\s+user\b/i, sev: 'Medio', title: 'Comandos de reconocimiento', tags: ['discovery'], m: ['T1069', 'T1135'],
+        exp: 'enumera grupos privilegiados, recursos compartidos o equipos de la red. Es reconocimiento previo al movimiento lateral.' },
+    ];
+    const skipEid = new Set(['4698', '7045', '4663', '5156', '5140', '5145']);
+    const cmdHits = [];
+    for (const e of events) {
+      if (skipEid.has(e.eid) || isProxy(e) || isWeb(e)) continue;
+      const t = text(e);
+      if (/APPPOOL|w3wp/i.test(e.user + ' ' + e.desc) && /cmd(\.exe)?|powershell|whoami/i.test(e.cmd)) {
+        cmdHits.push({ e, p: { k: 'webshellcmd', sev: 'Crítico', title: 'Shell de comandos lanzada por el servidor web (IIS)', tags: ['execution', 'webexploit'], m: ['T1505', 'T1059_003', 'T1033'],
+          exp: `el proceso de IIS (usuario ${e.user}) creó "${e.cmd}". Un pool de aplicación web nunca debería lanzar una consola: confirma ejecución remota de comandos mediante un web shell.` } });
+        continue;
+      }
+      for (const p of PAT) if (p.re.test(t)) { cmdHits.push({ e, p }); break; }
+    }
+    // agrupar por patrón + usuario + host en 30 min
+    for (const grp of Object.values(groupBy(cmdHits, h => `${h.p.k}|${h.e.user}|${h.e.host}`))) {
+      for (const c of clusters(grp.map(h => Object.assign(h.e, { _p: h.p })), 30 * MIN)) {
+        const p = c[0]._p, e = c[0];
+        const sev = p.sev;
+        let extra = '';
+        if (isSvcAcct(e.user) && isWorkstation(e.host) && p.k !== 'webshellcmd') extra = ` Además, ${e.user} es una cuenta de servicio ejecutando comandos interactivos en una estación de trabajo, lo que no corresponde a su función.`;
+        if (/informational/i.test(e.sev) && SEVN[sev] >= 2) extra += ` El SIEM lo clasificó como "${e.sev}", lo que subestima el riesgo.`;
+        const keys = ['user:' + e.user];
+        if (isExt(e.ip)) keys.push('ip:' + e.ip);
+        add({
+          rule: p.k, category: 'Comandos y procesos',
+          title: `${p.title} — ${shortUser(e.user)} en ${e.host}`,
+          severity: sev,
+          explanation: c.map(x => `${x.id} (${fmtHM(x.ts)}): "${x.cmd || x.desc}"`).join('; ') + ` → ${p.exp}${extra}`,
+          justification: { impact: 'Acción destructiva que elimina la capacidad de recuperación: precursor directo de ransomware.', credump: 'Robo de credenciales permite comprometer todo el dominio.', encoded: 'Ejecución ofuscada: el contenido real se oculta a los controles de seguridad.', archive: 'Preparación de datos para su extracción.', discovery: 'Reconocimiento del entorno por una sesión no legítima.', webshellcmd: 'Ejecución remota de código confirmada en un servidor expuesto a Internet.' }[p.k],
+          evidence: c, keys, mitre: mitre(...p.m), tags: p.tags,
+          actionKey: { impact: 'impact', credump: 'credump', encoded: 'encoded', archive: 'archive', discovery: 'discovery', webshellcmd: 'webshell' }[p.k],
+          iocs: extractIocs(c),
+        });
+      }
+    }
+    events.forEach(e => delete e._p);
+
+    // Ejecución periódica de binarios desde rutas anómalas (beaconing)
+    const susPath = /([a-z]:)?\\(programdata|temp|users\\public|windows\\temp|appdata)\\[^\s"]+\.(exe|dll|scr|bat|ps1)/i;
+    const execs = events.filter(e => e.eid === '4688' && susPath.test(e.cmd));
+    for (const grp of Object.values(groupBy(execs, e => `${e.host}|${e.user}|${e.cmd.toLowerCase()}`))) {
+      const ints = grp.slice(1).map((e, i) => (e.ts - grp[i].ts) / 1000);
+      const avg = ints.reduce((a, b) => a + b, 0) / (ints.length || 1);
+      const sd = Math.sqrt(ints.reduce((a, b) => a + (b - avg) ** 2, 0) / (ints.length || 1));
+      const periodic = grp.length >= 4 && avg > 0 && sd / avg < 0.25;
+      add({
+        rule: periodic ? 'beacon' : 'susexec', category: periodic ? 'Otras anomalías' : 'Comandos y procesos',
+        title: periodic ? `Ejecución periódica de ${grp[0].cmd.split('\\').pop()} cada ~${Math.round(avg / 60)} min en ${grp[0].host}` : `Ejecución desde ruta anómala en ${grp[0].host}`,
+        severity: periodic ? 'Alto' : 'Medio',
+        explanation: `${grp.length} ejecuciones (4688) de "${grp[0].cmd}" por ${grp[0].user} en ${grp[0].host}` + (periodic ? `, a intervalos regulares de ~${Math.round(avg / 60)} min (${grp.map(e => fmtHM(e.ts)).join(', ')}). La periodicidad exacta es típica de un implante que se reporta a su servidor de comando y control (beaconing).` : '. Los binarios legítimos no se ejecutan desde esa carpeta.') +
+          (grp.every(e => /informational/i.test(e.sev)) ? ' El SIEM marcó estas ejecuciones como "Informational".' : ''),
+        justification: periodic ? 'Implante activo con comportamiento automatizado.' : 'Binario fuera de rutas estándar.',
+        evidence: grp, keys: ['user:' + grp[0].user], mitre: mitre(...(periodic ? ['T1071', 'T1036'] : ['T1036'])), tags: periodic ? ['c2', 'execution'] : ['execution'],
+        actionKey: periodic ? 'beacon' : 'persistence', iocs: extractIocs(grp),
+      });
+    }
+
+    /* R5 · Persistencia (otras anomalías) */
+    for (const e of events.filter(e => e.eid === '4698' || e.eid === '7045')) {
+      const task = /TaskName=([^;]+)/i.exec(e.cmd)?.[1]?.trim() || '';
+      const svc = /ServiceName=([^;]+)/i.exec(e.cmd)?.[1]?.trim() || '';
+      const masq = /\\Microsoft\\Windows\\|update|windows|microsoft/i.test(task + svc);
+      const susp = susPath.test(e.cmd) || /powershell|cmd\.exe|wscript|mshta/i.test(e.cmd);
+      if (!susp && !masq) continue;
+      add({
+        rule: 'persistence', category: 'Otras anomalías',
+        title: e.eid === '4698' ? `Tarea programada sospechosa "${task}" en ${e.host}` : `Servicio sospechoso "${svc}" instalado en ${e.host}`,
+        severity: 'Alto',
+        explanation: `${e.id} (${e.eid === '4698' ? '4698 tarea programada creada' : '7045 servicio instalado'}) por ${e.user}: ${e.cmd}.` + (masq ? ' El nombre imita un componente legítimo de Windows (masquerading)' : '') + (susPath.test(e.cmd) ? ', y el ejecutable está en una ruta no estándar (C:\\ProgramData)' : '') + '. Es un mecanismo de persistencia: se ejecuta solo aunque el equipo se reinicie.',
+        justification: 'Persistencia que garantiza al atacante acceso continuo al servidor.',
+        evidence: [e], keys: ['user:' + e.user], mitre: mitre(e.eid === '4698' ? 'T1053' : 'T1543', ...(masq ? ['T1036'] : [])), tags: ['persistence'],
+        actionKey: 'persistence', iocs: extractIocs([e]),
+      });
+    }
+
+    /* R6 · Ataques web (otras anomalías) */
+    const web = events.filter(isWeb);
+    for (const [ip, list] of Object.entries(groupBy(web, e => e.ip))) {
+      for (const c of clusters(list, 10 * MIN)) {
+        const susRe = /cmd=|exec=|\.\.\/|union\s+select|<script|etc\/passwd|\/admin|user=admin|\/api\/[^ ]*export|\.(aspx|php|jsp|asp)\?/i;
+        const sus = c.filter(e => susRe.test(e.cmd + ' ' + e.desc));
+        if (sus.length < 3 && c.length < 10) continue;
+        const status = groupBy(c, e => e.result || '?');
+        const shell = c.filter(e => /\/uploads?\/[^ ?]*\.(aspx|php|jsp|asp)|\?cmd=/i.test(e.cmd) && /^2\d\d$/.test(e.result));
+        const uris = uniq(c.map(e => e.cmd));
+        add({
+          rule: shell.length ? 'webshell' : 'webscan', category: 'Otras anomalías',
+          title: shell.length ? `Web shell accesible en ${c[0].host} (${shell[0].cmd.split('?')[0]})` : `Sondeo web automatizado desde ${ip}`,
+          severity: shell.length ? 'Crítico' : 'Alto',
+          explanation: `${c.length} peticiones HTTP desde ${ip} a ${uniq(c.map(e => e.host)).join(', ')} en ${Math.max(1, Math.round((c[c.length - 1].ts - c[0].ts) / MIN))} min contra ${uris.join(', ')}. Códigos: ${Object.entries(status).map(([k, v]) => `${k}×${v.length}`).join(', ')}.` +
+            (shell.length ? ` ${shell.map(e => e.id).join(', ')}: la ruta con parámetro cmd= respondió 200, es decir, el archivo existe y acepta comandos (web shell).` : '') +
+            (c.some(e => /export/i.test(e.cmd) && /^2\d\d$/.test(e.result)) ? ' La API de exportación respondió 200 en algunas peticiones (posible extracción de datos).' : ''),
+          justification: shell.length ? 'Explotación de aplicación pública con capacidad de ejecutar comandos.' : 'Reconocimiento/ataque automatizado contra la aplicación web.',
+          evidence: c, keys: ['ip:' + ip], mitre: mitre('T1190', ...(shell.length ? ['T1505'] : ['T1595'])), tags: ['webexploit', 'initial'],
+          actionKey: shell.length ? 'webshell' : 'web', iocs: [{ type: 'IP origen', value: ip }, ...shell.map(e => ({ type: 'URI', value: e.cmd.split('?')[0] }))],
+        });
+      }
+    }
+
+    /* R7 · Exfiltración (otras anomalías) */
+    const prox = events.filter(e => isProxy(e) && /post|put|upload/i.test(e.desc + e.cmd));
+    for (const grp of Object.values(groupBy(prox, e => `${e.user}|${e.dest}`))) {
+      for (const c of clusters(grp, 15 * MIN)) {
+        const bytes = c.reduce((s, e) => s + (+(/bytes_out=(\d+)/i.exec(e.cmd + e.desc)?.[1] || 0)), 0);
+        if (bytes < cfg.exfilMB * 1e6 && c.length < 10) continue;
+        const dip = ipOf(c[0].dest);
+        add({
+          rule: 'exfil', category: 'Otras anomalías',
+          title: `Exfiltración de ${fmtBytes(bytes)} hacia ${c[0].dest}`,
+          severity: bytes >= 500e6 ? 'Crítico' : 'Alto',
+          explanation: `${c.length} subidas HTTPS POST de ${c[0].user} desde ${c[0].host} hacia ${c[0].dest} en ${Math.max(1, Math.round((c[c.length - 1].ts - c[0].ts) / MIN))} min (${uniq(c.map(e => (/uri=(\S+)/.exec(e.cmd) || [])[1]).filter(Boolean)).slice(0, 3).join(', ')}…), con ${fmtBytes(bytes)} salientes en total. Todas fueron permitidas por el proxy. Subir por partes a un destino externo no corporativo es un patrón de exfiltración.`,
+          justification: `Salida de ${fmtBytes(bytes)} de datos a un destino externo no autorizado.`,
+          evidence: c, keys: ['user:' + c[0].user, ...(isExt(dip) ? ['ip:' + dip] : [])], mitre: mitre('T1567', 'T1048'), tags: ['exfil'],
+          actionKey: 'exfil', iocs: [{ type: 'Destino', value: c[0].dest }], meta: { bytes },
+        });
+      }
+    }
+    for (const e of events.filter(e => (e.eid === '5156' || /firewall/i.test(e.src)))) {
+      const dip = ipOf(e.dest) || ipOf(e.desc);
+      if (!isExt(dip) || !/powershell|cmd\.exe|wscript|cscript|mshta|rundll32|certutil|bitsadmin/i.test(e.cmd + e.desc)) continue;
+      add({
+        rule: 'fwout', category: 'Otras anomalías',
+        title: `Conexión saliente de ${(/process=([\w.]+)/i.exec(e.desc)?.[1]) || 'script'} a ${e.dest} desde ${e.host}`,
+        severity: 'Alto',
+        explanation: `${e.id}: ${e.desc}. Un intérprete de scripts conectándose a una IP externa por 443 es típico de exfiltración o de un canal de C2.`,
+        justification: 'Salida de datos/control hacia infraestructura externa.',
+        evidence: [e], keys: ['user:' + e.user, 'ip:' + dip], mitre: mitre('T1041', 'T1071'), tags: ['exfil'], actionKey: 'exfil',
+        iocs: [{ type: 'Destino', value: e.dest }],
+      });
+    }
+
+    /* Acceso masivo a archivos */
+    const objs = events.filter(e => e.eid === '4663' && /file access|\.\w{2,5}$/i.test(e.cmd));
+    for (const grp of Object.values(groupBy(objs, e => e.user))) {
+      for (const c of clusters(grp, 5 * MIN)) {
+        const files = uniq(c.map(e => e.cmd));
+        if (files.length < cfg.massFiles) continue;
+        add({
+          rule: 'massaccess', category: 'Otras anomalías',
+          title: `Acceso masivo a ${files.length} archivos por ${shortUser(c[0].user)}`,
+          severity: 'Alto',
+          explanation: `${c.length} eventos 4663 de ${c[0].user} (origen ${c[0].ip}) sobre ${uniq(c.map(e => e.dest)).join(', ')} en ${Math.max(1, Math.round((c[c.length - 1].ts - c[0].ts) / MIN))} min, recorriendo archivos en secuencia (${files[0].replace(/^File access:\s*/i, '')} … ${files[files.length - 1].replace(/^File access:\s*/i, '')}). La cadencia fija indica un proceso automatizado, no un usuario.`,
+          justification: 'Recorrido automatizado de datos sensibles (recolección o preparación de cifrado).',
+          evidence: c, keys: ['user:' + c[0].user], mitre: mitre('T1039', 'T1083'), tags: ['collection'], actionKey: 'collection',
+        });
+      }
+    }
+
+    /* Movimiento lateral */
+    for (const e of events.filter(e => e.eid === '4624' || e.eid === '4625')) {
+      const c = compromised[e.user];
+      const sh = srcHost(e.desc);
+      const lt = logonType(e.desc);
+      if (!c || e.ts < c.ts || e.ts - c.ts > 180 * MIN) continue;
+      const dst = e.dest || e.host;
+      if (dst === c.host || !(lt === 3 || lt === 10 || sh)) continue;
+      const prevFail = events.filter(x => x.eid === '4625' && x.user === e.user && (x.dest || x.host) === dst && x.ts < e.ts && e.ts - x.ts < 10 * MIN && srcHost(x.desc) === sh);
+      if (e.eid === '4625') continue; // se adjunta como evidencia del exitoso
+      add({
+        rule: 'lateral', category: 'Movimiento lateral',
+        title: `Movimiento lateral de ${shortUser(e.user)}: ${sh || c.host} → ${dst}`,
+        severity: 'Alto',
+        explanation: `${e.id}: 4624 exitoso de ${e.user} en ${dst} (LogonType ${lt}${sh ? ', source=' + sh : ''}), ${Math.round((e.ts - c.ts) / MIN)} min después de comprometerse la cuenta en ${c.host}.` + (prevFail.length ? ` Antes hubo ${prevFail.length} intento(s) fallido(s) (${prevFail.map(x => x.id).join(', ')}).` : '') + ' La sesión del atacante saltó a otro servidor de la red.',
+        justification: 'El compromiso se extiende a un nuevo sistema.',
+        evidence: [...prevFail, e], keys: ['user:' + e.user], mitre: mitre(lt === 10 ? 'T1021_001' : 'T1021_002'), tags: ['lateral'], actionKey: 'lateral',
+      });
+    }
+
+    /* Acceso a recursos compartidos sensibles por actores ya identificados */
+    const actors = () => uniq(F.filter(f => !['brute'].includes(f.rule)).flatMap(f => f.keys.filter(k => k.startsWith('user:')).map(k => k.slice(5))));
+    const act = new Set(actors());
+    const sensRe = /\b(finance|finanzas|legal|rrhh|payroll|nomina|confidential|contabilidad)\b/i;
+    const shareEv = events.filter(e => ['5140', '5145'].includes(e.eid) && sensRe.test(e.desc + ' ' + e.dest) && act.has(e.user));
+    for (const grp of Object.values(groupBy(shareEv, e => e.user))) {
+      for (const c of clusters(grp, 30 * MIN)) {
+        const near = F.some(f => f.users.includes(c[0].user) && f.rule !== 'brute' && Math.abs(f.start - c[0].ts) < 60 * MIN);
+        if (!near) continue;
+        const shares = uniq(c.map(e => (sensRe.exec(e.desc + ' ' + e.dest) || [])[0]));
+        add({
+          rule: 'sensitive', category: 'Otras anomalías',
+          title: `Acceso a recurso sensible ${shares.join(', ')} por ${shortUser(c[0].user)}`,
+          severity: 'Medio',
+          explanation: c.map(e => `${e.id} (${fmtHM(e.ts)}): ${e.desc}${e.dest && !e.desc.includes(e.dest) ? ' → ' + e.dest : ''}`).join('; ') + `. La cuenta ${c[0].user} tiene otra actividad maliciosa en la misma ventana, por lo que este acceso forma parte de la recolección de datos.`,
+          justification: 'Acceso a información confidencial dentro de una cadena de ataque.',
+          evidence: c, keys: ['user:' + c[0].user], mitre: mitre('T1039'), tags: ['collection'], actionKey: 'collection',
+        });
+      }
+    }
+
+    /* Higiene / calidad de datos */
+    const hosts = uniq(events.map(e => e.host));
+    for (const grp of Object.values(groupBy(hosts, h => h.toLowerCase().replace(/[-_.\s]/g, '')))) {
+      if (grp.length < 2) continue;
+      const evs = events.filter(e => grp.includes(e.host));
+      add({
+        rule: 'hostdup', category: 'Otras anomalías', hygiene: true,
+        title: `Nombre de equipo inconsistente: ${grp.join(' / ')}`,
+        severity: 'Bajo',
+        explanation: grp.map(h => `"${h}" aparece en ${events.filter(e => e.host === h).length} eventos`).join('; ') + '. Puede ser un problema de normalización del SIEM o un equipo no inventariado con nombre parecido.',
+        justification: 'Afecta la correlación; no es evidencia de ataque por sí mismo.',
+        evidence: [evs[0], ...grp.map(h => evs.find(e => e.host === h))], keys: [], actionKey: 'hygiene',
+      });
+    }
+    const users = uniq(events.map(e => e.user));
+    const svcBase = u => shortUser(u).toLowerCase().replace(/svc|service|srv|[_\-.]/g, '');
+    for (const grp of Object.values(groupBy(users.filter(isSvcAcct), svcBase))) {
+      if (grp.length < 2) continue;
+      add({
+        rule: 'svcdup', category: 'Otras anomalías', hygiene: true,
+        title: `Cuentas de servicio duplicadas: ${grp.join(' / ')}`,
+        severity: 'Bajo',
+        explanation: grp.map(u => `${u}: ${events.filter(e => e.user === u).length} eventos`).join('; ') + '. Dos cuentas para la misma función dificultan el control y una de ellas podría no ser legítima.',
+        justification: 'Riesgo de gestión de identidades.', evidence: grp.map(u => events.find(e => e.user === u)), keys: [], actionKey: 'hygiene',
+      });
+    }
+
+    F.forEach(f => { f.actions = ACTIONS[f.actionKey] || ACTIONS.hygiene; });
+    const incidents = correlate(F, events, cfg);
+    /* Severidad del SIEM subestimada */
+    const flagged = new Set(incidents.filter(i => i.sevN >= 3).flatMap(i => i.evidence));
+    const under = [...flagged].map(i => events[i]).filter(e => /informational|info|low/i.test(e.sev) && !['4625'].includes(e.eid));
+    if (under.length) add({
+      rule: 'siemsev', category: 'Otras anomalías', hygiene: true,
+      title: `${under.length} eventos maliciosos clasificados como "Informational" por el SIEM`,
+      severity: 'Bajo',
+      explanation: `Eventos que forman parte de incidentes Altos/Críticos llegaron con severidad informativa: ${under.slice(0, 8).map(e => e.id).join(', ')}${under.length > 8 ? '…' : ''}. Las reglas del SIEM necesitan recalibrarse.`,
+      justification: 'Brecha de detección: riesgo de que el SOC N1 ignore estos eventos.', evidence: under, keys: [], actionKey: 'hygiene', actions: ACTIONS.hygiene,
+    });
+
+    return { findings: F, incidents, hygiene: F.filter(f => f.hygiene), stats: stats(events, F, incidents), cfg };
+  }
+
+  function extractIocs(evs) {
+    const out = [];
+    for (const e of evs) {
+      const t = e.cmd + ' ' + e.desc;
+      for (const m of t.matchAll(/[A-Za-z]:\\[^\s;"'<>|]+\.[A-Za-z0-9]{1,5}/g)) if (!/\\Windows\\System32\\/i.test(m[0])) out.push({ type: 'Archivo', value: m[0] });
+      const tn = /TaskName=([^;]+)/i.exec(t); if (tn) out.push({ type: 'Tarea programada', value: tn[1].trim() });
+      const sn = /ServiceName=([^;]+)/i.exec(t); if (sn) out.push({ type: 'Servicio', value: sn[1].trim() });
+      if (isExt(e.ip)) out.push({ type: 'IP origen', value: e.ip });
+    }
+    return out;
+  }
+
+  /* ---------- Correlación en incidentes ---------- */
+  const STAGE = { webexploit: 'Explotación web', credential: 'Ataque de credenciales', initial: 'Acceso inicial', privesc: 'Escalamiento', execution: 'Ejecución', discovery: 'Reconocimiento', lateral: 'Movimiento lateral', persistence: 'Persistencia', c2: 'Comando y control', collection: 'Recolección', exfil: 'Exfiltración', impact: 'Impacto' };
+  const STAGE_ORDER = Object.keys(STAGE);
+
+  function correlate(F, events, cfg) {
+    const live = F.filter(f => !f.hygiene);
+    const parent = live.map((_, i) => i);
+    const find = i => parent[i] === i ? i : (parent[i] = find(parent[i]));
+    const W = cfg.corrWindowMin * MIN;
+    for (let i = 0; i < live.length; i++) for (let j = i + 1; j < live.length; j++) {
+      const a = live[i], b = live[j];
+      if (!a.keys.some(k => b.keys.includes(k))) continue;
+      const gap = Math.max(a.start, b.start) - Math.min(a.end, b.end);
+      if (gap <= W) parent[find(i)] = find(j);
+    }
+    const comps = groupBy(live.map((f, i) => ({ f, r: find(i) })), x => x.r);
+    const incs = Object.values(comps).map(list => {
+      const fs = list.map(x => x.f).sort((a, b) => a.start - b.start);
+      const ev = uniq(fs.flatMap(f => f.evidence)).sort((a, b) => a - b);
+      const tags = uniq(fs.flatMap(f => f.tags));
+      const stages = STAGE_ORDER.filter(s => tags.includes(s));
+      let sev = Math.max(...fs.map(f => SEVN[f.severity]));
+      const reasons = [];
+      const ext = fs.some(f => f.keys.some(k => k.startsWith('ip:')));
+      const has = s => tags.includes(s);
+      const exfilBytes = fs.reduce((s, f) => s + (f.meta?.bytes || 0), 0);
+      if (has('impact')) { sev = 4; reasons.push('Se ejecutaron acciones de impacto que eliminan la capacidad de recuperación (precursor de ransomware).'); }
+      if (fs.some(f => f.rule === 'webshell' || f.rule === 'webshellcmd') && fs.some(f => f.rule === 'webshellcmd')) { sev = 4; reasons.push('Ejecución remota de comandos confirmada en un servidor expuesto a Internet.'); }
+      if ((has('initial') || has('credential')) && has('exfil') && ext) { sev = 4; reasons.push('Cadena completa: acceso desde Internet, escalamiento/movimiento y salida de datos.'); }
+      if (has('lateral') && has('collection') && has('exfil')) { sev = Math.max(sev, 4); if (!reasons.some(r => r.startsWith('Cadena'))) reasons.push('El atacante se movió entre sistemas, recolectó datos sensibles y los sacó de la red.'); }
+      if (has('exfil') && !reasons.length) reasons.push(`Salida de datos confirmada (${exfilBytes ? fmtBytes(exfilBytes) : 'conexión saliente'}) a destino externo.`);
+      if (has('persistence')) reasons.push('Persistencia instalada: el atacante conserva acceso aunque se reinicie el equipo.');
+      if (has('c2')) reasons.push('Ejecución periódica compatible con beaconing de C2.');
+      if (fs.some(f => f.rule === 'compromise' || f.rule === 'extlogon')) reasons.push('Cuenta válida comprometida y usada por el atacante.');
+      if (has('privesc')) reasons.push('Obtención de privilegios administrativos.');
+      if (has('credential') && !fs.some(f => f.rule === 'compromise')) reasons.push('Ataque de credenciales en curso.');
+      if (!reasons.length) reasons.push(fs.find(f => SEVN[f.severity] === sev).justification);
+      const hosts = uniq(fs.flatMap(f => f.hosts));
+      const users = uniq(fs.flatMap(f => f.users)).filter(u => u !== '-');
+      const ips = uniq(fs.flatMap(f => f.keys.filter(k => k.startsWith('ip:')).map(k => k.slice(3))));
+      const iocMap = new Map();
+      fs.flatMap(f => f.iocs).forEach(i => iocMap.set(i.type + '|' + i.value, i));
+      users.forEach(u => { if (!/apppool/i.test(u)) iocMap.set('Cuenta|' + u, { type: 'Cuenta implicada', value: u }); });
+      const mit = new Map(); fs.flatMap(f => f.mitre).forEach(m => mit.set(m.id, m));
+      const act = { investigar: [], contener: [], remediar: [] };
+      fs.forEach(f => Object.keys(act).forEach(k => act[k].push(...f.actions[k])));
+      Object.keys(act).forEach(k => act[k] = uniq(act[k]));
+      return {
+        findings: fs, evidence: ev, stages, tags, severity: SEV[sev], sevN: sev, reasons,
+        start: Math.min(...fs.map(f => f.start)), end: Math.max(...fs.map(f => f.end)),
+        hosts, users, ips, iocs: [...iocMap.values()], mitre: [...mit.values()], actions: act, exfilBytes,
+        categories: uniq(fs.map(f => f.category)),
+      };
+    }).sort((a, b) => a.start - b.start);
+    incs.forEach((inc, i) => {
+      inc.id = 'INC-' + String(i + 1).padStart(2, '0');
+      inc.title = incidentTitle(inc);
+      inc.impact = incidentImpact(inc, events);
+      inc.summary = incidentSummary(inc);
+      inc.findings.forEach(f => f.incident = inc.id);
+    });
+    // relaciones débiles: incidentes que comparten un activo (sin otro vínculo en los logs)
+    incs.forEach(a => {
+      a.related = incs.filter(b => b !== a).map(b => ({ id: b.id, hosts: a.hosts.filter(h => b.hosts.includes(h)) })).filter(r => r.hosts.length);
+    });
+    return incs;
+  }
+
+  function incidentTitle(inc) {
+    const has = s => inc.tags.includes(s);
+    const r = new Set(inc.findings.map(f => f.rule));
+    if (r.has('webshell') || r.has('webshellcmd')) return `Web shell con ejecución remota de comandos en ${inc.hosts.filter(h => h).join(', ')}`;
+    if (has('impact')) return `Actividad pre-ransomware: acceso masivo a archivos y borrado de Shadow Copies`;
+    if ((r.has('brute') || r.has('extlogon')) && has('lateral') && has('exfil')) return `Intrusión por ${inc.findings.some(f => f.meta?.rdp) ? 'RDP' : 'fuerza bruta'} con movimiento lateral y exfiltración de datos`;
+    if (has('exfil') && has('collection')) return `Exfiltración de datos de ${inc.findings.map(f => (/\\(\w+)/.exec(f.title) || [])[1]).filter(Boolean)[0] || 'recursos sensibles'} por ${inc.users.map(shortUser).join(', ')}`;
+    if (has('persistence')) return `Persistencia maliciosa en ${inc.hosts.join(', ')}${has('c2') ? ' con beaconing' : ''}`;
+    if (r.has('brute') && (r.has('compromise') || r.has('extlogon'))) return `${inc.findings.find(f => f.rule === 'brute').title.split(' desde')[0]} con cuenta comprometida (${inc.users.map(shortUser).join(', ')})`;
+    return inc.stages.map(s => STAGE[s]).join(' → ') || inc.findings[0].title;
+  }
+
+  function incidentImpact(inc, events) {
+    const out = [];
+    const has = s => inc.tags.includes(s);
+    const blob = inc.findings.flatMap(f => f.evidence.map(i => events[i])).map(e => e.desc + ' ' + e.dest + ' ' + e.cmd).join(' ');
+    const shareNames = uniq([...blob.matchAll(/\b(Finance|Finanzas|Legal|HR|RRHH|Payroll|Nomina)\b/gi)].map(m => m[1][0].toUpperCase() + m[1].slice(1).toLowerCase()));
+    const files = uniq([...blob.matchAll(/(?:Finance|Legal|HR|Payroll)\\(?:[\w\-]+\\)*[\w\-]+\.(?:xlsx|docx|pdf|csv)/gi)].map(m => m[0])).slice(0, 2);
+    const sens = shareNames.length ? [`los recursos ${shareNames.join(' y ')}${files.length ? ' (p. ej. ' + files.join(', ') + ')' : ''}`] : [];
+    if (has('exfil')) out.push(`Confidencialidad: salida de información fuera de la organización${inc.exfilBytes ? ` (${fmtBytes(inc.exfilBytes)})` : ''}${sens.length ? ', con datos de ' + sens[0] : ''}. Riesgo legal, regulatorio y reputacional.`);
+    else if (has('collection')) out.push(`Confidencialidad: acceso no autorizado a ${sens.length ? sens[0] : 'información sensible'}.`);
+    if (has('impact')) out.push('Disponibilidad: sin Shadow Copies, un cifrado posterior no podría revertirse localmente; posible interrupción operativa y extorsión.');
+    if (has('persistence') || has('c2')) out.push(`Control persistente del atacante sobre ${inc.hosts.join(', ')}.`);
+    if (inc.findings.some(f => f.rule === 'webshellcmd' || f.rule === 'webshell')) out.push('Integridad: control del servidor web expuesto, que puede usarse como punto de entrada a la red interna o para alterar la aplicación.');
+    if (has('lateral')) out.push(`Expansión del compromiso a ${inc.hosts.length} sistemas (${inc.hosts.join(', ')}).`);
+    if (inc.findings.some(f => f.rule === 'compromise' || f.rule === 'extlogon')) out.push(`Identidad: credenciales de ${inc.users.map(shortUser).join(', ')} en poder del atacante, que puede reutilizarlas.`);
+    if (has('credential') && !out.length) out.push('Riesgo de compromiso de cuentas y bloqueo de usuarios legítimos.');
+    if (!out.length) out.push('Impacto limitado; requiere seguimiento.');
+    return out;
+  }
+
+  function incidentSummary(inc) {
+    return `${inc.findings.length} hallazgo(s) entre ${fmtHM(inc.start)} y ${fmtHM(inc.end)} sobre ${inc.hosts.join(', ')}; fases: ${inc.stages.map(s => STAGE[s]).join(' → ')}.`;
+  }
+
+  function stats(events, F, incs) {
+    const by = k => Object.entries(groupBy(events, e => e[k] || '—')).map(([k, v]) => [k, v.length]).sort((a, b) => b[1] - a[1]);
+    const ts = events.map(e => e.ts).filter(t => !isNaN(t));
+    return {
+      total: events.length, start: Math.min(...ts), end: Math.max(...ts),
+      bySev: by('sev'), byEid: by('eid'), byHost: by('host'), byUser: by('user'), byIp: by('ip'), bySrc: by('src'),
+      extIps: uniq(events.map(e => e.ip).filter(isExt)),
+      flagged: new Set(F.filter(f => !f.hygiene).flatMap(f => f.evidence)),
+      incBySev: ['Crítico', 'Alto', 'Medio', 'Bajo'].map(s => [s, incs.filter(i => i.severity === s).length]),
+      findBySev: ['Crítico', 'Alto', 'Medio', 'Bajo'].map(s => [s, F.filter(f => f.severity === s).length]),
+      byCat: CATS.map(c => [c, F.filter(f => f.category === c).length]),
+    };
+  }
+
+  return { normalize, analyze, SEV, SEVN, CATS, STAGE, fmtTs, fmtHM, fmtBytes, isExt, shortUser };
+})();
+if (typeof module !== 'undefined') module.exports = Engine;
+
+/* ===== SOC Log Analyzer L2 — aplicación ===== */
+const S = {
+  file: null, headers: [], map: {}, events: [], A: null,
+  view: 'carga', evFilter: { q: '', sev: '', eid: '', host: '', flagged: false, inc: '', win: null }, evPage: 0,
+  dashSev: '', anaCat: '', aiReview: null, aiReport: null, useAI: true, chat: [],
+  meta: { analyst: 'Lautaro Javier Bilinski', role: 'Analista SOC Nivel 2', company: 'Consultora de Ciberseguridad — Estocolmo, Suecia', client: 'Cliente CORP' },
+};
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const SEVC = { 'Crítico': '#ef4444', 'Alto': '#f97316', 'Medio': '#eab308', 'Bajo': '#3b82f6' };
+const sevB = s => `<span class="sev ${s}">${s}</span>`;
+const store = { get(k, d) { try { const v = localStorage.getItem('socapp.' + k); return v === null ? d : JSON.parse(v); } catch { return d; } }, set(k, v) { try { localStorage.setItem('socapp.' + k, JSON.stringify(v)); } catch { } } };
+function toast(m, ms = 3200) { const t = $('#toast'); t.textContent = m; t.style.display = 'block'; clearTimeout(t._h); t._h = setTimeout(() => t.style.display = 'none', ms); }
+
+/* ---------------- Navegación ---------------- */
+const VIEWS = [
+  ['carga', '01', 'Carga'], ['analisis', '02', 'Análisis'], ['dashboard', '03', 'Dashboard'],
+  ['riesgos', '04', 'Riesgos'], ['informe', '05', 'Informe'], ['exportar', '06', 'Exportar'],
+];
+function nav() {
+  $('#tabs').innerHTML = VIEWS.map(([k, n, l]) => `<a href="#${k}" class="${S.view === k ? 'active' : ''} ${!S.A && k !== 'carga' ? 'disabled' : ''}"><span class="n">${n}</span>${l}</a>`).join('');
+}
+function go(v) { if (location.hash !== '#' + v) location.hash = v; else route(); }
+function route() {
+  let v = (location.hash || '#carga').slice(1);
+  if (!VIEWS.some(x => x[0] === v)) v = 'carga';
+  if (!S.A && v !== 'carga') v = 'carga';
+  S.view = v; nav(); render(); window.scrollTo(0, 0);
+}
+window.addEventListener('hashchange', route);
+function render() {
+  const fn = { carga: vCarga, analisis: vAnalisis, dashboard: vDashboard, riesgos: vRiesgos, informe: vInforme, exportar: vExportar }[S.view];
+  $('#view').innerHTML = ''; fn($('#view'));
+}
+
+/* ---------------- 01 · Carga ---------------- */
+async function loadBuffer(buf, name) {
+  try {
+    let rows;
+    if (/\.csv$/i.test(name)) rows = parseCSV(new TextDecoder().decode(buf));
+    else {
+      const sheets = await XLSXReader.read(buf);
+      const sh = sheets.find(s => s.rows.length > 1);
+      if (!sh) throw new Error('El libro no tiene hojas con datos.');
+      rows = sh.rows; name += ` · hoja "${sh.name}"`;
+    }
+    const n = Engine.normalize(rows);
+    S.file = name; S.headers = n.headers; S.map = n.map; S.events = n.events;
+    S.A = Engine.analyze(S.events);
+    S.aiReview = null; S.aiReport = null; S.chat = [];
+    S.evFilter = { q: '', sev: '', eid: '', host: '', flagged: false, inc: '', win: null }; S.evPage = 0;
+    $('#fileChip').innerHTML = `<span class="dot" style="background:var(--ok)"></span>${esc(name.split(' · ')[0])} · ${S.events.length} eventos`;
+    toast(`Archivo cargado: ${S.events.length} eventos · ${S.A.incidents.length} incidentes detectados`);
+    nav(); render();
+  } catch (e) { console.error(e); toast('Error al leer el archivo: ' + e.message, 6000); }
+}
+function parseCSV(t) {
+  const rows = []; let row = [], cur = '', q = false;
+  const sep = (t.split('\n')[0].match(/;/g) || []).length > (t.split('\n')[0].match(/,/g) || []).length ? ';' : ',';
+  for (let i = 0; i < t.length; i++) {
+    const c = t[i];
+    if (q) { if (c === '"' && t[i + 1] === '"') { cur += '"'; i++; } else if (c === '"') q = false; else cur += c; }
+    else if (c === '"') q = true; else if (c === sep) { row.push(cur); cur = ''; } else if (c === '\n') { row.push(cur.replace(/\r$/, '')); rows.push(row); row = []; cur = ''; } else cur += c;
+  }
+  if (cur || row.length) { row.push(cur); rows.push(row); }
+  return rows;
+}
+function b64ToBuf(b) { const s = atob(b); const u = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i); return u.buffer; }
+
+function vCarga(el) {
+  el.innerHTML = `
+  <h1>01 · Carga de archivos</h1>
+  <p class="sub">Importá el Excel (.xlsx) exportado del SIEM del cliente. Se procesa en tu navegador: los logs no se envían a ningún servidor, salvo lo que mandes al asistente de IA.</p>
+  <div class="drop" id="drop">
+    <div class="ic">📄</div>
+    <h2 style="margin:10px 0 4px">Arrastrá el archivo .xlsx acá</h2>
+    <p class="muted" style="margin:0 0 14px">o seleccionalo desde tu equipo (también acepta .csv)</p>
+    <div class="row" style="justify-content:center">
+      <label class="btn primary">Seleccionar archivo<input type="file" id="fileIn" accept=".xlsx,.csv" hidden></label>
+      ${typeof SAMPLE_XLSX !== 'undefined' ? `<button class="btn" id="sampleBtn">Usar archivo del caso (SOC_L2_Logs_Ampliados_Multiples_Incidentes.xlsx)</button>` : ''}
+    </div>
+  </div>
+  <div id="loaded"></div>`;
+  const drop = $('#drop');
+  ['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
+  ['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
+  drop.addEventListener('drop', async e => { const f = e.dataTransfer.files[0]; if (f) loadBuffer(await f.arrayBuffer(), f.name); });
+  $('#fileIn').addEventListener('change', async e => { const f = e.target.files[0]; if (f) loadBuffer(await f.arrayBuffer(), f.name); });
+  const sb = $('#sampleBtn'); if (sb) sb.onclick = () => loadBuffer(b64ToBuf(SAMPLE_XLSX), 'SOC_L2_Logs_Ampliados_Multiples_Incidentes_1.xlsx');
+  if (!S.A) return;
+  const L = $('#loaded');
+  const st = S.A.stats;
+  const fieldNames = { id: 'Log_ID', ts: 'Timestamp', host: 'Hostname', eid: 'Event_ID', user: 'User', ip: 'Source_IP', dest: 'Destination', src: 'Log_Source', desc: 'Event_Description', cmd: 'Process_CommandLine', result: 'Result', sev: 'Severity' };
+  L.innerHTML = `
+  <div class="grid g4" style="margin:18px 0">
+    <div class="card kpi"><div class="l">Eventos</div><div class="v">${st.total}</div></div>
+    <div class="card kpi"><div class="l">Período</div><div class="v" style="font-size:16px">${Engine.fmtTs(st.start)}<br>${Engine.fmtTs(st.end)}</div></div>
+    <div class="card kpi"><div class="l">Equipos / cuentas</div><div class="v">${st.byHost.length} / ${st.byUser.length}</div></div>
+    <div class="card kpi"><div class="l">Fuentes de log</div><div class="v" style="font-size:15px">${st.bySrc.map(x => esc(x[0])).join(', ')}</div></div>
+  </div>
+  <div class="card" style="margin-bottom:14px">
+    <div class="row" style="justify-content:space-between"><h3 style="margin:0">Columnas reconocidas</h3><span class="chip">${esc(S.file)}</span></div>
+    <div style="margin-top:8px">${Object.entries(fieldNames).map(([k, n]) => `<span class="tag" title="${n}">${S.map[k] !== undefined ? '✓ ' + esc(S.headers[S.map[k]]) : '✗ ' + n + ' (no encontrada)'}</span>`).join('')}</div>
+  </div>
+  <div class="row" style="justify-content:space-between;margin:18px 0 10px"><h2 style="margin:0">Visualización de los registros</h2>
+    <button class="btn primary" onclick="go('analisis')">Ver análisis →</button></div>
+  <div id="evTable"></div>`;
+  renderEvents($('#evTable'));
+}
+
+/* Tabla de eventos reutilizable */
+function flaggedSev() {
+  const m = new Map();
+  for (const inc of S.A.incidents) for (const i of inc.evidence) if (!m.has(i) || Engine.SEVN[m.get(i)] < inc.sevN) m.set(i, inc.severity);
+  return m;
+}
+function filteredEvents() {
+  const f = S.evFilter, fs = flaggedSev();
+  const incEv = f.inc ? new Set(S.A.incidents.find(i => i.id === f.inc)?.evidence || []) : null;
+  const q = f.q.toLowerCase();
+  return S.events.filter(e =>
+    (!f.sev || e.sev === f.sev) && (!f.eid || e.eid === f.eid) && (!f.host || e.host === f.host) &&
+    (!f.flagged || fs.has(e.idx)) && (!incEv || incEv.has(e.idx)) &&
+    (!f.win || (e.ts >= f.win[0] && e.ts < f.win[1])) &&
+    (!q || [e.id, e.host, e.eid, e.user, e.ip, e.dest, e.src, e.desc, e.cmd, e.result, e.sev].join(' ').toLowerCase().includes(q)));
+}
+function renderEvents(el) {
+  const st = S.A.stats, f = S.evFilter, fs = flaggedSev();
+  const opts = (arr, v) => arr.map(([k, n]) => `<option value="${esc(k)}" ${k === v ? 'selected' : ''}>${esc(k)} (${n})</option>`).join('');
+  el.innerHTML = `
+  <div class="row" style="margin-bottom:10px">
+    <input type="text" id="fq" placeholder="Buscar (IP, usuario, comando, Log_ID…)" value="${esc(f.q)}" style="flex:1;min-width:200px">
+    <select id="fsev"><option value="">Severidad SIEM</option>${opts(st.bySev, f.sev)}</select>
+    <select id="feid"><option value="">Event_ID</option>${opts(st.byEid, f.eid)}</select>
+    <select id="fhost"><option value="">Hostname</option>${opts(st.byHost, f.host)}</select>
+    <select id="finc"><option value="">Incidente</option>${S.A.incidents.map(i => `<option ${i.id === f.inc ? 'selected' : ''}>${i.id}</option>`).join('')}</select>
+    <label class="chip" style="cursor:pointer"><input type="checkbox" id="fflag" ${f.flagged ? 'checked' : ''}> Solo eventos de incidentes</label>
+    ${f.win ? `<span class="chip">Ventana ${Engine.fmtHM(f.win[0])}–${Engine.fmtHM(f.win[1])} <a href="#" id="fwin">✕</a></span>` : ''}
+  </div><div id="evBody"></div>`;
+  const body = $('#evBody', el);
+  const draw = () => {
+    const list = filteredEvents(); const per = 50; const pages = Math.max(1, Math.ceil(list.length / per));
+    S.evPage = Math.min(S.evPage, pages - 1);
+    const pg = list.slice(S.evPage * per, S.evPage * per + per);
+    const cols = [['id', 'Log_ID'], ['tsStr', 'Timestamp'], ['host', 'Hostname'], ['eid', 'Event_ID'], ['user', 'User'], ['ip', 'Source_IP'], ['dest', 'Destination'], ['src', 'Log_Source'], ['desc', 'Event_Description'], ['cmd', 'Process_CommandLine'], ['result', 'Result'], ['sev', 'Severity']];
+    body.innerHTML = `<div class="tw" style="max-height:62vh"><table class="t"><thead><tr><th>⚑</th>${cols.map(c => `<th>${c[1]}</th>`).join('')}</tr></thead><tbody>
+      ${pg.map(e => { const s = fs.get(e.idx); return `<tr class="click ${s ? 'flag ' + s : ''}" data-i="${e.idx}"><td>${s ? `<span class="sev ${s}" title="Parte de un incidente">${s[0]}</span>` : ''}</td>${cols.map(c => `<td class="${['desc', 'cmd'].includes(c[0]) ? 'wrap' : ''} ${['id', 'tsStr', 'ip', 'cmd'].includes(c[0]) ? 'mono' : ''}">${esc(e[c[0]])}</td>`).join('')}</tr>`; }).join('') || `<tr><td colspan="13" class="empty">Sin resultados</td></tr>`}
+    </tbody></table></div>
+    <div class="pager">${list.length} eventos · página ${S.evPage + 1}/${pages}
+      <button class="btn sm" id="pp" ${S.evPage === 0 ? 'disabled' : ''}>‹</button><button class="btn sm" id="pn" ${S.evPage >= pages - 1 ? 'disabled' : ''}>›</button></div>`;
+    $('#pp', body).onclick = () => { S.evPage--; draw(); };
+    $('#pn', body).onclick = () => { S.evPage++; draw(); };
+    $$('tr[data-i]', body).forEach(tr => tr.onclick = () => showEvent(+tr.dataset.i));
+  };
+  const upd = () => { S.evPage = 0; draw(); };
+  $('#fq', el).oninput = e => { f.q = e.target.value; upd(); };
+  $('#fsev', el).onchange = e => { f.sev = e.target.value; upd(); };
+  $('#feid', el).onchange = e => { f.eid = e.target.value; upd(); };
+  $('#fhost', el).onchange = e => { f.host = e.target.value; upd(); };
+  $('#finc', el).onchange = e => { f.inc = e.target.value; upd(); };
+  $('#fflag', el).onchange = e => { f.flagged = e.target.checked; upd(); };
+  const fw = $('#fwin', el); if (fw) fw.onclick = ev => { ev.preventDefault(); f.win = null; renderEvents(el); };
+  draw();
+}
+function showEvent(i) {
+  const e = S.events[i];
+  const fs = S.A.findings.filter(f => f.evidence.includes(i));
+  modal(`<div class="row" style="justify-content:space-between"><h2 style="margin:0">${esc(e.id)}</h2><button class="btn sm" onclick="closeModal()">Cerrar</button></div>
+  <p class="muted">Registro original del Excel</p>
+  <div class="kv">${Object.entries(e.raw).map(([k, v]) => `<div>${esc(k)}</div><div>${esc(v) || '—'}</div>`).join('')}</div>
+  ${fs.length ? `<h3 style="margin-top:18px">Hallazgos que usan este evento como evidencia</h3>${fs.map(f => `<div class="find"><div class="h">${sevB(f.severity)}<span class="fid">${f.id}${f.incident ? ' · ' + f.incident : ''}</span><b>${esc(f.title)}</b></div><p>${esc(f.explanation)}</p></div>`).join('')}` : '<p class="dim" style="margin-top:16px">Este evento no forma parte de ningún hallazgo.</p>'}`);
+}
+function modal(html) { $('#modalBox').innerHTML = html; $('#modal').classList.add('open'); }
+function closeModal() { $('#modal').classList.remove('open'); }
+function evLinks(idxs, max = 40) {
+  const l = idxs.slice(0, max).map(i => `<button class="evlink" onclick="showEvent(${i})">${esc(S.events[i].id)}</button>`).join('');
+  return l + (idxs.length > max ? ` <span class="dim">+${idxs.length - max} más</span>` : '');
+}
+
+/* ---------------- 02 · Análisis ---------------- */
+function vAnalisis(el) {
+  const A = S.A;
+  const cats = Engine.CATS.map(c => [c, A.findings.filter(f => f.category === c && !f.hygiene).length]);
+  const multi = A.incidents.length > 1;
+  el.innerHTML = `
+  <div class="row" style="justify-content:space-between;align-items:flex-start">
+    <div><h1>02 · Análisis de seguridad</h1><p class="sub">Eventos sospechosos detectados por reglas y correlacionados en incidentes. Cada conclusión cita los Log_ID del Excel.</p></div>
+    <button class="btn ai" id="aiRevBtn">✦ Revisar análisis con IA</button>
+  </div>
+  <div class="callout" style="margin-bottom:16px">
+    <b>Veredicto: ${multi ? `hubo ${A.incidents.length} incidentes distintos` : A.incidents.length === 1 ? 'hubo un único incidente' : 'no se detectaron incidentes'}.</b>
+    <span class="muted">${A.findings.filter(f => !f.hygiene).length} hallazgos se agruparon cuando compartían una IP externa o una cuenta dentro de ${A.cfg.corrWindowMin} min.
+    ${multi ? 'Los incidentes se separaron porque no comparten atacante, IP ni cuenta en los registros.' : ''}
+    ${A.incidents.filter(i => i.related.length).length ? ' Hay incidentes que comparten servidores (p. ej. ' + [...new Set(A.incidents.flatMap(i => i.related.flatMap(r => r.hosts)))].join(', ') + '). Eso no prueba que sea el mismo atacante, pero conviene investigarlo.' : ''}</span>
+  </div>
+  <div id="aiRev"></div>
+  <h3>Qué detecta la aplicación</h3>
+  <div class="filters">${[['', 'Todas', A.findings.filter(f => !f.hygiene).length], ...cats.map(([c, n]) => [c, c, n])].map(([k, l, n]) => `<button class="fchip ${S.anaCat === k ? 'on' : ''}" data-c="${esc(k)}">${l}<span class="c">${n}</span></button>`).join('')}</div>
+  <div id="incList"></div>
+  <h2 style="margin-top:26px">Observaciones de higiene y calidad de datos</h2>
+  <p class="sub">No son ataques, pero afectan la detección.</p>
+  ${A.hygiene.map(f => findHTML(f)).join('')}`;
+  $$('.fchip', el).forEach(b => b.onclick = () => { S.anaCat = b.dataset.c; vAnalisis(el); });
+  $('#aiRevBtn').onclick = aiReview;
+  if (S.aiReview) renderAIReview();
+  const list = $('#incList');
+  const incs = A.incidents.filter(i => !S.anaCat || i.findings.some(f => f.category === S.anaCat));
+  list.innerHTML = incs.map((inc, k) => incHTML(inc, k === 0 || S.anaCat)).join('') || '<div class="empty">No hay hallazgos en esta categoría.</div>';
+  $$('.inc>.hd', list).forEach(h => h.onclick = () => h.parentElement.classList.toggle('open'));
+}
+function incHTML(inc, open) {
+  const fs = inc.findings.filter(f => !S.anaCat || f.category === S.anaCat);
+  return `<div class="inc ${inc.severity} ${open ? 'open' : ''}" id="${inc.id}">
+    <div class="hd"><span class="id">${inc.id}</span><div class="tt"><b>${esc(inc.title)}</b>
+      <span class="muted" style="font-size:12.5px">${Engine.fmtTs(inc.start)} → ${Engine.fmtHM(inc.end)} · ${inc.hosts.map(esc).join(', ')} · ${inc.findings.length} hallazgos · ${inc.evidence.length} eventos</span>
+      <div class="stages">${inc.stages.map(s => `<span>${Engine.STAGE[s]}</span>`).join('')}</div></div>${sevB(inc.severity)}</div>
+    <div class="bd">
+      <div class="callout ${inc.sevN >= 4 ? 'warn' : ''}" style="margin-bottom:6px"><b>Criticidad ${inc.severity}:</b> ${inc.reasons.map(esc).join(' ')}</div>
+      ${inc.related.length ? `<p class="dim" style="font-size:12.5px">Activo compartido con ${inc.related.map(r => `${r.id} (${r.hosts.join(', ')})`).join(', ')}. Posible relación, sin evidencia directa en los logs.</p>` : ''}
+      ${fs.map(f => findHTML(f)).join('')}
+      <div class="row" style="margin-top:12px"><button class="btn sm" onclick="S.evFilter={q:'',sev:'',eid:'',host:'',flagged:false,inc:'${inc.id}',win:null};go('carga')">Ver los ${inc.evidence.length} eventos en la tabla</button></div>
+    </div></div>`;
+}
+function findHTML(f) {
+  return `<div class="find"><div class="h">${sevB(f.severity)}<span class="fid">${f.id}</span><span class="tag">${esc(f.category)}</span><b>${esc(f.title)}</b></div>
+    <p>${esc(f.explanation)}</p>
+    <p><span class="dim">Justificación:</span> ${esc(f.justification)}</p>
+    ${f.mitre.length ? `<div>${f.mitre.map(m => `<span class="tag m" title="${esc(m.tactic)}">${m.id} ${esc(m.name)}</span>`).join('')}</div>` : ''}
+    <div style="margin-top:6px"><span class="dim" style="font-size:12px">Evidencia:</span> ${evLinks(f.evidence)}</div></div>`;
+}
+
+/* ---------------- 03 · Dashboard (gráficos SVG interactivos) ---------------- */
+const tip = { show(ev, html) { const t = $('#tip'); t.innerHTML = html; t.style.display = 'block'; const x = Math.min(ev.clientX + 14, innerWidth - t.offsetWidth - 8); t.style.left = x + 'px'; t.style.top = (ev.clientY + 14) + 'px'; }, hide() { $('#tip').style.display = 'none'; } };
+function bindTips(root) {
+  $$('[data-tip]', root).forEach(n => { n.addEventListener('mousemove', e => tip.show(e, n.dataset.tip)); n.addEventListener('mouseleave', tip.hide); });
+}
+function donut(el, data, { onClick, center } = {}) {
+  const tot = data.reduce((s, d) => s + d.v, 0) || 1; let a = -Math.PI / 2;
+  const R = 70, r = 46, cx = 90, cy = 90;
+  const arcs = data.filter(d => d.v > 0).map(d => {
+    const a0 = a, a1 = a + (d.v / tot) * Math.PI * 2 - (data.filter(x => x.v).length > 1 ? 0.015 : 0); a += (d.v / tot) * Math.PI * 2;
+    const big = a1 - a0 > Math.PI ? 1 : 0, p = (rr, t) => [cx + rr * Math.cos(t), cy + rr * Math.sin(t)];
+    const full = d.v === tot;
+    const path = full ? `M${cx - R},${cy}a${R},${R} 0 1,0 ${2 * R},0a${R},${R} 0 1,0 ${-2 * R},0M${cx - r},${cy}a${r},${r} 0 1,1 ${2 * r},0a${r},${r} 0 1,1 ${-2 * r},0` :
+      `M${p(R, a0)}A${R},${R} 0 ${big} 1 ${p(R, a1)}L${p(r, a1)}A${r},${r} 0 ${big} 0 ${p(r, a0)}Z`;
+    return `<path class="hit" d="${path}" fill="${d.c}" fill-rule="evenodd" data-k="${esc(d.k)}" data-tip="<b>${esc(d.k)}</b>: ${d.v} (${Math.round(d.v / tot * 100)}%)"/>`;
+  }).join('');
+  el.innerHTML = `<div class="chart"><svg viewBox="0 0 180 180" style="max-width:220px;margin:auto">${arcs}<text x="90" y="88" text-anchor="middle" fill="#e7ecf7" font-size="26" font-weight="700">${center ?? tot}</text><text x="90" y="106" text-anchor="middle" fill="#7383a3" font-size="10">total</text></svg>
+  <div class="lg" style="justify-content:center">${data.map(d => `<span><i style="background:${d.c}"></i>${esc(d.k)} ${d.v}</span>`).join('')}</div></div>`;
+  bindTips(el); if (onClick) $$('path', el).forEach(p => p.onclick = () => onClick(p.dataset.k));
+}
+function hbars(el, data, { onClick, unit = '' } = {}) {
+  const max = Math.max(1, ...data.map(d => d.v)); const W = 520, rh = 26, lw = 150;
+  const H = data.length * rh + 4;
+  el.innerHTML = `<div class="chart"><svg viewBox="0 0 ${W} ${H}">${data.map((d, i) => {
+    const w = (W - lw - 50) * d.v / max; const y = i * rh + 3;
+    return `<g class="hit" data-k="${esc(d.k)}" data-tip="<b>${esc(d.k)}</b>: ${d.v}${unit}${d.t ? '<br>' + esc(d.t) : ''}"><text x="${lw - 8}" y="${y + 15}" text-anchor="end" fill="#a9b4cc" font-size="11.5">${esc(d.k.length > 22 ? d.k.slice(0, 21) + '…' : d.k)}</text>
+      <rect x="${lw}" y="${y + 3}" width="${Math.max(2, w)}" height="${rh - 9}" rx="4" fill="${d.c || '#5b8cff'}"/><text x="${lw + w + 6}" y="${y + 15}" fill="#e7ecf7" font-size="11.5" font-weight="600">${d.v}</text></g>`;
+  }).join('')}</svg></div>`;
+  bindTips(el); if (onClick) $$('g.hit', el).forEach(g => g.onclick = () => onClick(g.dataset.k));
+}
+function timeline(el, { onClick }) {
+  const ev = S.events.filter(e => !isNaN(e.ts)); if (!ev.length) return;
+  const st = S.A.stats, B = 10 * 60000;
+  const t0 = Math.floor(st.start / B) * B, n = Math.ceil((st.end - t0 + 1) / B);
+  const fs = flaggedSev(); const sevs = ['Crítico', 'Alto', 'Medio', 'Bajo'];
+  const bins = Array.from({ length: n }, (_, i) => ({ t: t0 + i * B, tot: 0, s: { 'Crítico': 0, 'Alto': 0, 'Medio': 0, 'Bajo': 0 } }));
+  ev.forEach(e => { const b = bins[Math.floor((e.ts - t0) / B)]; b.tot++; const s = fs.get(e.idx); if (s && (!S.dashSev || s === S.dashSev)) b.s[s]++; });
+  const W = 900, H = 230, pl = 34, pb = 26, pt = 10, cw = (W - pl - 10) / n;
+  const max = Math.max(1, ...bins.map(b => b.tot));
+  const y = v => H - pb - (H - pb - pt) * v / max;
+  let g = '';
+  for (let k = 0; k <= 4; k++) { const v = Math.round(max * k / 4); g += `<line x1="${pl}" x2="${W - 10}" y1="${y(v)}" y2="${y(v)}" stroke="#243150"/><text x="${pl - 6}" y="${y(v) + 4}" text-anchor="end" fill="#7383a3" font-size="10">${v}</text>`; }
+  bins.forEach((b, i) => {
+    const x = pl + i * cw; let acc = 0;
+    g += `<rect x="${x + 1}" y="${y(b.tot)}" width="${cw - 2}" height="${H - pb - y(b.tot)}" fill="#2a3a63" rx="2"/>`;
+    sevs.forEach(s => { if (!b.s[s]) return; const h = (H - pb - pt) * b.s[s] / max; g += `<rect x="${x + 1}" y="${H - pb - acc - h}" width="${cw - 2}" height="${h}" fill="${SEVC[s]}" rx="2"/>`; acc += h; });
+    const det = sevs.filter(s => b.s[s]).map(s => `${s}: ${b.s[s]}`).join('<br>');
+    g += `<rect class="hit" data-i="${i}" x="${x}" y="${pt}" width="${cw}" height="${H - pb - pt}" fill="transparent" data-tip="<b>${Engine.fmtHM(b.t)}–${Engine.fmtHM(b.t + B)}</b><br>${b.tot} eventos${det ? '<br>' + det : ''}<br><span style='color:#7383a3'>clic: ver eventos</span>"/>`;
+    if (i % Math.ceil(n / 12) === 0) g += `<text x="${x}" y="${H - 8}" fill="#7383a3" font-size="10">${Engine.fmtHM(b.t)}</text>`;
+  });
+  el.innerHTML = `<div class="chart"><svg viewBox="0 0 ${W} ${H}">${g}</svg><div class="lg"><span><i style="background:#2a3a63"></i>Eventos totales</span>${sevs.map(s => `<span><i style="background:${SEVC[s]}"></i>Evidencia de incidente ${s}</span>`).join('')}</div></div>`;
+  bindTips(el); $$('rect.hit', el).forEach(r => r.onclick = () => onClick(bins[+r.dataset.i].t, bins[+r.dataset.i].t + B));
+}
+function gantt(el, incs) {
+  const st = S.A.stats; const W = 900, rh = 30, pl = 70, H = incs.length * rh + 26;
+  const x = t => pl + (W - pl - 14) * (t - st.start) / Math.max(1, st.end - st.start);
+  let g = '';
+  for (let k = 0; k <= 6; k++) { const t = st.start + (st.end - st.start) * k / 6; g += `<line x1="${x(t)}" x2="${x(t)}" y1="0" y2="${H - 20}" stroke="#243150"/><text x="${x(t)}" y="${H - 6}" text-anchor="middle" fill="#7383a3" font-size="10">${Engine.fmtHM(t)}</text>`; }
+  incs.forEach((inc, i) => {
+    const y0 = i * rh + 4, w = Math.max(6, x(inc.end) - x(inc.start));
+    g += `<g class="hit" data-id="${inc.id}" data-tip="<b>${inc.id} · ${inc.severity}</b><br>${esc(inc.title)}<br>${Engine.fmtHM(inc.start)}–${Engine.fmtHM(inc.end)}"><text x="${pl - 8}" y="${y0 + 16}" text-anchor="end" fill="#a9b4cc" font-size="11" font-family="monospace">${inc.id}</text><rect x="${x(inc.start)}" y="${y0 + 3}" width="${w}" height="${rh - 10}" rx="5" fill="${SEVC[inc.severity]}"/>
+      ${inc.findings.map(f => `<circle cx="${x(f.start)}" cy="${y0 + rh / 2 - 2}" r="2.5" fill="#fff" opacity=".85"/>`).join('')}</g>`;
+  });
+  el.innerHTML = `<div class="chart"><svg viewBox="0 0 ${W} ${H}">${g}</svg></div>`;
+  bindTips(el); $$('g.hit', el).forEach(n => n.onclick = () => { go('analisis'); setTimeout(() => { const d = $('#' + n.dataset.id); if (d) { d.classList.add('open'); d.scrollIntoView({ behavior: 'smooth' }); } }, 80); });
+}
+function vDashboard(el) {
+  const A = S.A, st = A.stats, fil = S.dashSev;
+  const incs = A.incidents.filter(i => !fil || i.severity === fil);
+  const fnd = A.findings.filter(f => !f.hygiene && (!fil || f.severity === fil));
+  const affHosts = {}; incs.forEach(i => i.hosts.forEach(h => { if (!affHosts[h] || affHosts[h].n < i.sevN) affHosts[h] = { n: i.sevN, s: i.severity, inc: [] }; affHosts[h].inc.push(i.id); }));
+  const cnt = s => A.incidents.filter(i => i.severity === s).length;
+  el.innerHTML = `
+  <h1>03 · Dashboard</h1><p class="sub">Estadísticas e indicadores por criticidad. Pasá el cursor sobre los gráficos para ver el detalle y hacé clic para filtrar.</p>
+  <div class="filters">${['', 'Crítico', 'Alto', 'Medio', 'Bajo'].map(s => `<button class="fchip ${fil === s ? 'on' : ''}" data-s="${s}">${s || 'Todas las criticidades'}${s ? `<span class="c">${cnt(s)}</span>` : ''}</button>`).join('')}</div>
+  <div class="grid g6" style="margin-bottom:14px">
+    <div class="card kpi"><div class="l">Eventos analizados</div><div class="v">${st.total}</div></div>
+    <div class="card kpi"><div class="l">Eventos en incidentes</div><div class="v">${new Set(incs.flatMap(i => i.evidence)).size}</div></div>
+    <div class="card kpi"><div class="l">Incidentes</div><div class="v">${incs.length}</div></div>
+    <div class="card kpi crit"><div class="l">Críticos</div><div class="v">${incs.filter(i => i.severity === 'Crítico').length}</div></div>
+    <div class="card kpi high"><div class="l">Altos</div><div class="v">${incs.filter(i => i.severity === 'Alto').length}</div></div>
+    <div class="card kpi"><div class="l">IPs externas</div><div class="v">${st.extIps.length}</div></div>
+  </div>
+  <div class="grid g3" style="margin-bottom:14px">
+    <div class="card"><h3>Incidentes por criticidad</h3><div id="c1"></div></div>
+    <div class="card"><h3>Hallazgos por criticidad</h3><div id="c2"></div></div>
+    <div class="card"><h3>Hallazgos por categoría</h3><div id="c3"></div></div>
+  </div>
+  <div class="card" style="margin-bottom:14px"><h3>Actividad en el tiempo (bloques de 10 min)</h3><div id="c4"></div><div id="winEv"></div></div>
+  <div class="card" style="margin-bottom:14px"><h3>Línea de tiempo de incidentes</h3><div id="c5"></div></div>
+  <div class="grid g3">
+    <div class="card"><h3>Equipos afectados</h3><div id="c6"></div></div>
+    <div class="card"><h3>IPs de origen externas</h3><div id="c7"></div></div>
+    <div class="card"><h3>Severidad asignada por el SIEM</h3><div id="c8"></div></div>
+  </div>`;
+  $$('.fchip', el).forEach(b => b.onclick = () => { S.dashSev = b.dataset.s; vDashboard(el); });
+  const setSev = k => { S.dashSev = S.dashSev === k ? '' : k; vDashboard(el); };
+  donut($('#c1'), ['Crítico', 'Alto', 'Medio', 'Bajo'].map(s => ({ k: s, v: incs.filter(i => i.severity === s).length, c: SEVC[s] })), { onClick: setSev });
+  donut($('#c2'), ['Crítico', 'Alto', 'Medio', 'Bajo'].map(s => ({ k: s, v: fnd.filter(f => f.severity === s).length, c: SEVC[s] })), { onClick: setSev });
+  hbars($('#c3'), Engine.CATS.map(c => { const l = fnd.filter(f => f.category === c); const top = l.reduce((m, f) => Math.max(m, Engine.SEVN[f.severity]), 0); return { k: c, v: l.length, c: SEVC[Engine.SEV[top]] || '#33415f', t: 'Clic: ver en Análisis' }; }), { onClick: k => { S.anaCat = k; go('analisis'); } });
+  timeline($('#c4'), { onClick: (a, b) => { S.evFilter = { q: '', sev: '', eid: '', host: '', flagged: false, inc: '', win: [a, b] }; S.evPage = 0; const w = $('#winEv'); w.innerHTML = `<h3 style="margin-top:14px">Eventos ${Engine.fmtHM(a)}–${Engine.fmtHM(b)}</h3><div></div>`; renderEvents($('div', w)); w.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } });
+  gantt($('#c5'), incs);
+  hbars($('#c6'), Object.entries(affHosts).sort((a, b) => b[1].n - a[1].n).map(([h, v]) => ({ k: h, v: S.events.filter(e => e.host === h).length, c: SEVC[v.s], t: v.inc.join(', ') })), { unit: ' eventos', onClick: h => { S.evFilter = { q: '', sev: '', eid: '', host: h, flagged: true, inc: '', win: null }; go('carga'); } });
+  hbars($('#c7'), st.extIps.map(ip => { const inc = A.incidents.find(i => i.ips.includes(ip)); return { k: ip, v: S.events.filter(e => e.ip === ip || e.dest.startsWith(ip)).length, c: inc ? SEVC[inc.severity] : '#5b8cff', t: inc ? inc.id + ' · ' + inc.title : '' }; }).sort((a, b) => b.v - a.v), { unit: ' eventos', onClick: ip => { S.evFilter = { q: ip, sev: '', eid: '', host: '', flagged: false, inc: '', win: null }; go('carga'); } });
+  const sc = { Informational: '#3a4a74', Warning: '#eab308', Medium: '#f97316', High: '#ef4444', Critical: '#b91c1c' };
+  donut($('#c8'), st.bySev.map(([k, v]) => ({ k, v, c: sc[k] || '#5b8cff' })), { onClick: k => { S.evFilter = { q: '', sev: k, eid: '', host: '', flagged: false, inc: '', win: null }; go('carga'); } });
+}
+
+/* ---------------- 04 · Clasificación de riesgos ---------------- */
+const CRITERIA = [
+  ['Crítico', 'Compromiso confirmado con impacto en curso o inminente: ejecución remota de código en un sistema expuesto, acciones destructivas (borrado de backups) o cadena completa con salida de datos. Requiere escalamiento inmediato a IR.'],
+  ['Alto', 'Compromiso confirmado sin impacto final observado (cuenta tomada, persistencia, privilegios), o exfiltración de datos acotada a un usuario/equipo. Atención en el turno.'],
+  ['Medio', 'Actividad sospechosa con indicios pero sin compromiso confirmado (reconocimiento, compresión de datos, intentos fallidos internos). Investigar.'],
+  ['Bajo', 'Observaciones de higiene o calidad de datos sin evidencia de ataque. Planificar mejora.'],
+];
+function vRiesgos(el) {
+  const A = S.A;
+  el.innerHTML = `
+  <h1>04 · Clasificación de riesgos</h1><p class="sub">Cada incidente y hallazgo se clasifica como Crítico, Alto, Medio o Bajo, con su justificación basada en la evidencia.</p>
+  <div class="card" style="margin-bottom:16px"><h3>Criterios de clasificación</h3><div class="legend-sev">${CRITERIA.map(([s, t]) => `${sevB(s)}<div class="muted">${t}</div>`).join('')}</div></div>
+  <h2>Incidentes</h2>
+  <div class="tw" style="margin-bottom:22px"><table class="t"><thead><tr><th>ID</th><th>Criticidad</th><th>Incidente</th><th>Justificación</th><th>Impacto posible</th><th>Activos</th></tr></thead><tbody>
+  ${A.incidents.slice().sort((a, b) => b.sevN - a.sevN || a.start - b.start).map(i => `<tr><td class="mono">${i.id}</td><td>${sevB(i.severity)}</td><td><b>${esc(i.title)}</b><div class="dim" style="font-size:12px">${Engine.fmtHM(i.start)}–${Engine.fmtHM(i.end)}</div></td>
+    <td class="wrap"><ul class="clean">${i.reasons.map(r => `<li>${esc(r)}</li>`).join('')}</ul></td><td class="wrap"><ul class="clean">${i.impact.map(r => `<li>${esc(r)}</li>`).join('')}</ul></td><td>${i.hosts.map(esc).join('<br>')}</td></tr>`).join('')}
+  </tbody></table></div>
+  <h2>Hallazgos</h2>
+  <div class="tw"><table class="t"><thead><tr><th>ID</th><th>Criticidad</th><th>Categoría</th><th>Hallazgo</th><th>Justificación</th><th>Incidente</th><th>Evidencia</th></tr></thead><tbody>
+  ${A.findings.slice().sort((a, b) => Engine.SEVN[b.severity] - Engine.SEVN[a.severity] || a.start - b.start).map(f => `<tr><td class="mono">${f.id}</td><td>${sevB(f.severity)}</td><td>${esc(f.category)}</td><td class="wrap">${esc(f.title)}</td><td class="wrap">${esc(f.justification)}</td><td class="mono">${f.incident || '—'}</td><td>${evLinks(f.evidence, 4)}</td></tr>`).join('')}
+  </tbody></table></div>`;
+}
+
+/* ---------------- 05 · Informe técnico ---------------- */
+const RECS = {
+  brute: 'Exigir MFA en todo acceso remoto y aplicar bloqueo de cuenta tras intentos fallidos; no exponer controladores de dominio ni RDP a Internet.',
+  compromise: 'Implementar alertas de inicio de sesión desde IPs externas o geolocalizaciones anómalas.',
+  privesc: 'Eliminar cuentas genéricas privilegiadas (p. ej. "admin"), aplicar tiering administrativo y una solución PAM.',
+  encoded: 'Registrar y alertar PowerShell con -EncodedCommand; habilitar Script Block Logging, AMSI y Constrained Language Mode.',
+  discovery: 'Alertar comandos de enumeración (net view, Get-SmbShare, Get-LocalGroupMember) desde sesiones remotas.',
+  archive: 'Monitorear el uso de herramientas de compresión (7z, tar, rar) sobre recursos compartidos sensibles.',
+  impact: 'Mantener backups offline/inmutables probados periódicamente y bloquear o alertar vssadmin/wbadmin delete.',
+  webshellcmd: 'Detectar procesos hijos de w3wp.exe (cmd, powershell) como alerta de máxima prioridad.',
+  webshell: 'Proteger aplicaciones públicas con WAF, validar subidas de archivos y deshabilitar la ejecución en directorios de carga.',
+  webscan: 'Aplicar rate limiting y proteger rutas administrativas y APIs de exportación con autenticación fuerte.',
+  lateral: 'Segmentar la red, restringir SMB/RDP entre servidores y desplegar LAPS.',
+  sensitive: 'Revisar permisos de los recursos compartidos sensibles (mínimo privilegio) y auditar su acceso.',
+  massaccess: 'Crear alertas por acceso masivo a archivos en poco tiempo (posible ransomware o robo de datos).',
+  exfil: 'Implementar DLP y límites de volumen en el proxy para subidas a destinos no categorizados.',
+  fwout: 'Bloquear conexiones salientes directas de intérpretes de scripts (powershell, cmd) a Internet.',
+  persistence: 'Alertar la creación de tareas programadas (4698) y servicios (7045) en servidores, sobre todo con binarios en ProgramData/Temp.',
+  beacon: 'Desplegar EDR con detección de comportamiento periódico (beaconing) y bloqueo de binarios no firmados.',
+  hostdup: 'Normalizar nombres de equipos en el SIEM y conciliar el inventario (CMDB).',
+  svcdup: 'Depurar cuentas de servicio duplicadas y prohibir su inicio de sesión interactivo.',
+  siemsev: 'Recalibrar la severidad de las reglas del SIEM: acciones maliciosas llegaron como "Informational".',
+};
+function reportModel() {
+  const A = S.A, st = A.stats, ai = S.useAI && S.aiReport;
+  const incs = A.incidents;
+  const sevCount = ['Crítico', 'Alto', 'Medio', 'Bajo'].map(s => [s, incs.filter(i => i.severity === s).length]).filter(x => x[1]);
+  const crit = incs.filter(i => i.sevN >= 4);
+  const resumenDet = [
+    `A pedido del ${S.meta.client}, se analizaron ${st.total} eventos exportados de su SIEM, registrados entre ${Engine.fmtTs(st.start)} y ${Engine.fmtTs(st.end)}. Abarcan ${st.byHost.length} equipos, ${st.byUser.length} cuentas y las fuentes ${st.bySrc.map(x => x[0]).join(', ')}.`,
+    `Conclusión: ${incs.length > 1 ? `hubo ${incs.length} incidentes de seguridad distintos` : incs.length ? 'hubo un incidente de seguridad' : 'no se identificaron incidentes'} (${sevCount.map(([s, n]) => `${n} ${s.toLowerCase()}${n > 1 ? 's' : ''}`).join(', ')}), que suman ${A.findings.filter(f => !f.hygiene).length} hallazgos. También se registraron ${A.hygiene.length} observaciones de higiene. ${incs.length > 1 ? 'Se separaron como incidentes distintos porque no comparten IP de origen ni cuenta atacante en los registros.' : ''}`,
+    crit.length ? `Requieren escalamiento inmediato: ${crit.map(i => `${i.id} (${i.title})`).join('; ')}.` : '',
+    `Todas las conclusiones se apoyan en registros concretos del archivo entregado, citados por su Log_ID.`,
+  ].filter(Boolean);
+  const aiInc = id => ai && ai.incidentes ? ai.incidentes.find(x => x.id === id) : null;
+  const usedRules = new Set(A.findings.map(f => f.rule));
+  return {
+    title: 'Informe técnico de incidentes de seguridad', st, meta: S.meta, date: new Date(),
+    resumen: ai && ai.resumen_ejecutivo ? { ai: true, paras: String(ai.resumen_ejecutivo).split(/\n+/).filter(Boolean) } : { ai: false, paras: resumenDet },
+    incs: incs.map(i => {
+      const x = aiInc(i.id);
+      return {
+        ...i, aiExplain: x?.explicacion_tecnica || null, aiImpact: x?.impacto || null,
+        explainDet: i.findings.map(f => ({ id: f.id, cat: f.category, sev: f.severity, title: f.title, text: f.explanation, mitre: f.mitre })),
+        evRows: i.evidence.map(k => S.events[k]),
+      };
+    }),
+    hygiene: A.hygiene,
+    recs: ai && Array.isArray(ai.recomendaciones) && ai.recomendaciones.length ? { ai: true, list: ai.recomendaciones } : { ai: false, list: Object.keys(RECS).filter(k => usedRules.has(k)).map(k => RECS[k]) },
+    iocs: [...new Map(incs.flatMap(i => i.iocs.map(o => [o.type + o.value, { ...o, inc: i.id }]))).values()],
+    mitre: [...new Map(incs.flatMap(i => i.mitre.map(m => [m.id, { ...m, inc: incs.filter(j => j.mitre.some(n => n.id === m.id)).map(j => j.id) }]))).values()].sort((a, b) => a.tactic.localeCompare(b.tactic)),
+  };
+}
+function vInforme(el) {
+  const R = reportModel();
+  const aiT = b => b ? '<span class="aiTag">✦ redactado con IA</span>' : '';
+  el.innerHTML = `
+  <div class="row" style="justify-content:space-between;align-items:flex-start;margin-bottom:14px">
+    <div><h1>05 · Informe técnico</h1><p class="sub" style="margin:0">Documento con las 8 secciones requeridas. Los textos se pueden editar haciendo clic sobre ellos.</p></div>
+    <div class="row"><button class="btn ai" id="aiRepBtn">✦ Redactar con IA</button>
+    ${S.aiReport ? `<label class="chip" style="cursor:pointer"><input type="checkbox" id="useAI" ${S.useAI ? 'checked' : ''}> Usar redacción IA</label>` : ''}
+    <button class="btn primary" onclick="go('exportar')">Exportar PDF →</button></div>
+  </div>
+  <div id="aiRepStatus"></div>
+  <article class="doc" id="doc">
+    <div class="meta">${esc(R.meta.company)} · Clasificación: CONFIDENCIAL</div>
+    <h1>${R.title}</h1>
+    <div class="meta">Cliente: ${esc(R.meta.client)} · Analista: ${esc(R.meta.analyst)} (${esc(R.meta.role)}) · Fecha: ${R.date.toLocaleDateString('es-AR')}<br>Fuente: ${esc(S.file)} · ${R.st.total} eventos · ${Engine.fmtTs(R.st.start)} a ${Engine.fmtTs(R.st.end)}</div>
+    <h2>1. Resumen ejecutivo ${aiT(R.resumen.ai)}</h2>
+    ${R.resumen.paras.map(p => `<p contenteditable>${esc(p)}</p>`).join('')}
+    <h2>2. Hallazgos identificados</h2>
+    <table><tr><th>ID</th><th>Incidente</th><th>Criticidad</th><th>Ventana</th><th>Activos</th></tr>
+    ${R.incs.map(i => `<tr><td>${i.id}</td><td>${esc(i.title)}</td><td>${sevB(i.severity)}</td><td>${Engine.fmtHM(i.start)}–${Engine.fmtHM(i.end)}</td><td>${i.hosts.map(esc).join(', ')}</td></tr>`).join('')}</table>
+    <h2>3. Explicación técnica de cada hallazgo</h2>
+    ${R.incs.map(i => `<h3>${i.id} · ${esc(i.title)} ${aiT(!!i.aiExplain)}</h3>
+      ${i.aiExplain ? `<p contenteditable>${esc(i.aiExplain)}</p>` : ''}
+      ${i.explainDet.map(f => `<p contenteditable><b>${f.id} [${esc(f.cat)} · ${f.sev}] ${esc(f.title)}.</b> ${esc(f.text)} <i style="color:#6b7894">MITRE: ${f.mitre.map(m => m.id).join(', ')}</i></p>`).join('')}`).join('')}
+    <h2>4. Evidencias encontradas en los logs</h2>
+    ${R.incs.map(i => `<h3>${i.id} · ${i.evRows.length} eventos</h3><table><tr><th>Log_ID</th><th>Timestamp</th><th>Host</th><th>Event_ID</th><th>Usuario</th><th>IP origen</th><th>Detalle</th></tr>
+      ${i.evRows.map(e => `<tr><td>${esc(e.id)}</td><td>${esc(e.tsStr)}</td><td>${esc(e.host)}</td><td>${esc(e.eid)}</td><td>${esc(e.user)}</td><td>${esc(e.ip)}</td><td>${esc(e.desc)}${e.cmd ? ' — <code>' + esc(e.cmd) + '</code>' : ''}</td></tr>`).join('')}</table>`).join('')}
+    <h2>5. Criticidad y justificación</h2>
+    <table><tr><th>ID</th><th>Criticidad</th><th>Justificación</th></tr>${R.incs.map(i => `<tr><td>${i.id}</td><td>${sevB(i.severity)}</td><td contenteditable>${i.reasons.map(esc).join(' ')}</td></tr>`).join('')}</table>
+    <p style="font-size:12px;color:#5a6886">Criterios: ${CRITERIA.map(([s, t]) => `<b>${s}</b>: ${t}`).join(' ')}</p>
+    <h2>6. Posible impacto en la organización</h2>
+    ${R.incs.map(i => `<h3>${i.id} ${aiT(!!i.aiImpact)}</h3>${i.aiImpact ? `<p contenteditable>${esc(i.aiImpact)}</p>` : `<ul>${i.impact.map(x => `<li contenteditable>${esc(x)}</li>`).join('')}</ul>`}`).join('')}
+    <h2>7. Plan de acción: investigar, contener y remediar</h2>
+    ${R.incs.slice().sort((a, b) => b.sevN - a.sevN).map(i => `<h3>${i.id} · prioridad ${i.severity}</h3><table><tr><th style="width:33%">Investigar</th><th style="width:33%">Contener</th><th>Remediar</th></tr><tr>${['investigar', 'contener', 'remediar'].map(k => `<td><ul style="padding-left:16px;margin:0">${i.actions[k].map(a => `<li contenteditable>${esc(a)}</li>`).join('')}</ul></td>`).join('')}</tr></table>`).join('')}
+    <h2>8. Recomendaciones generales de seguridad ${aiT(R.recs.ai)}</h2>
+    <ol>${R.recs.list.map(r => `<li contenteditable>${esc(r)}</li>`).join('')}</ol>
+    <h2>Anexo A · Indicadores de compromiso (IoC)</h2>
+    <table><tr><th>Tipo</th><th>Valor</th><th>Incidente</th></tr>${R.iocs.map(o => `<tr><td>${esc(o.type)}</td><td><code>${esc(o.value)}</code></td><td>${o.inc}</td></tr>`).join('')}</table>
+    <h2>Anexo B · MITRE ATT&CK</h2>
+    <table><tr><th>Táctica</th><th>Técnica</th><th>Incidentes</th></tr>${R.mitre.map(m => `<tr><td>${esc(m.tactic)}</td><td>${m.id} ${esc(m.name)}</td><td>${m.inc.join(', ')}</td></tr>`).join('')}</table>
+    <h2>Anexo C · Observaciones de higiene</h2>
+    <ul>${R.hygiene.map(f => `<li><b>${esc(f.title)}</b>: ${esc(f.explanation)}</li>`).join('')}</ul>
+    <h2>Anexo D · Metodología</h2>
+    <p>Normalización de las columnas del SIEM, aplicación de reglas de detección en seis categorías (fuerza bruta, inicios sospechosos, escalamiento, comandos y procesos, movimiento lateral y otras anomalías) y correlación de hallazgos que comparten IP externa o cuenta dentro de ${S.A.cfg.corrWindowMin} minutos. Cada hallazgo conserva los Log_ID que lo respaldan. Cuando se usa la IA, su salida se valida contra los Log_ID existentes. No se integró Microsoft Sentinel.</p>
+  </article>`;
+  $('#aiRepBtn').onclick = aiWriteReport;
+  const u = $('#useAI'); if (u) u.onchange = e => { S.useAI = e.target.checked; vInforme(el); };
+  if (S.aiReport?._warn) $('#aiRepStatus').innerHTML = `<div class="callout warn" style="margin-bottom:12px">${S.aiReport._warn}</div>`;
+}
+
+/* ---------------- 06 · Exportación PDF ---------------- */
+function vExportar(el) {
+  el.innerHTML = `
+  <h1>06 · Exportación</h1><p class="sub">Descargá el informe técnico completo en PDF.</p>
+  <div class="grid g2">
+    <div class="card"><h3>Datos del informe</h3>
+      <div class="grid" style="gap:10px">
+        <label class="f">Analista<input type="text" id="mAn" value="${esc(S.meta.analyst)}"></label>
+        <label class="f">Rol<input type="text" id="mRo" value="${esc(S.meta.role)}"></label>
+        <label class="f">Consultora<input type="text" id="mCo" value="${esc(S.meta.company)}"></label>
+        <label class="f">Cliente<input type="text" id="mCl" value="${esc(S.meta.client)}"></label>
+      </div></div>
+    <div class="card"><h3>Contenido</h3>
+      <label class="chip" style="margin:4px 0"><input type="checkbox" id="oEv" checked> Tablas de evidencia completas</label><br>
+      <label class="chip" style="margin:4px 0"><input type="checkbox" id="oAx" checked> Anexos (IoC, MITRE, higiene, metodología)</label><br>
+      ${S.aiReport ? `<label class="chip" style="margin:4px 0"><input type="checkbox" id="oAI" ${S.useAI ? 'checked' : ''}> Incluir redacción de la IA</label><br>` : '<p class="dim" style="font-size:12.5px">Opcional: generá antes la redacción con IA desde la pestaña Informe.</p>'}
+      <div class="row" style="margin-top:14px"><button class="btn primary" id="pdfBtn">⬇ Descargar informe PDF</button></div>
+      <p class="dim" style="font-size:12px;margin-top:10px" id="pdfMsg"></p>
+    </div>
+  </div>`;
+  const bind = (id, k) => $(id).oninput = e => { S.meta[k] = e.target.value; store.set('meta', S.meta); };
+  bind('#mAn', 'analyst'); bind('#mRo', 'role'); bind('#mCo', 'company'); bind('#mCl', 'client');
+  $('#pdfBtn').onclick = async () => {
+    const ai = $('#oAI'); if (ai) S.useAI = ai.checked;
+    const b = $('#pdfBtn'); b.disabled = true; b.innerHTML = '<span class="spin"></span> Generando…';
+    try { await exportPDF({ evidence: $('#oEv').checked, annex: $('#oAx').checked }); $('#pdfMsg').textContent = 'Informe generado.'; }
+    catch (e) { console.error(e); $('#pdfMsg').textContent = 'No se pudo generar el PDF: ' + (e.message || e.code || e); }
+    b.disabled = false; b.innerHTML = '⬇ Descargar informe PDF';
+  };
+}
+const pdfSafe = s => String(s ?? '').replace(/→/g, '->').replace(/[—–]/g, '-').replace(/…/g, '...').replace(/[“”]/g, '"').replace(/[‘’]/g, "'").replace(/≥/g, '>=').replace(/✦|✓|✗|⚑/g, '').replace(/[^\x00-\xFF]/g, '');
+async function exportPDF(opt) {
+  if (!window.jspdf) throw new Error('La librería jsPDF no cargó (revisá la conexión a cdnjs.cloudflare.com).');
+  const { jsPDF } = window.jspdf; const R = reportModel();
+  const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+  const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), M = 46; let y = M;
+  const col = { 'Crítico': [220, 38, 38], 'Alto': [234, 88, 12], 'Medio': [202, 138, 4], 'Bajo': [37, 99, 235] };
+  const need = h => { if (y + h > H - 50) { doc.addPage(); y = M; } };
+  const text = (t, { size = 10, bold = false, color = [30, 35, 51], indent = 0, gap = 4 } = {}) => {
+    doc.setFont('helvetica', bold ? 'bold' : 'normal'); doc.setFontSize(size); doc.setTextColor(...color);
+    const lines = doc.splitTextToSize(pdfSafe(t), W - 2 * M - indent);
+    for (const l of lines) { need(size * 1.35); doc.text(l, M + indent, y + size); y += size * 1.35; }
+    y += gap;
+  };
+  const h2 = t => { need(40); y += 8; text(t, { size: 14, bold: true, color: [11, 26, 58], gap: 2 }); doc.setDrawColor(200, 210, 230); doc.line(M, y, W - M, y); y += 10; };
+  const h3 = t => { need(30); text(t, { size: 11, bold: true, color: [19, 48, 107], gap: 3 }); };
+  const table = (head, body, o = {}) => {
+    doc.autoTable({ startY: y, head: [head.map(pdfSafe)], body: body.map(r => r.map(c => pdfSafe(c))), margin: { left: M, right: M }, styles: { fontSize: o.fs || 8.5, cellPadding: 4, overflow: 'linebreak', textColor: [30, 35, 51] },
+      headStyles: { fillColor: [19, 48, 107], textColor: 255 }, alternateRowStyles: { fillColor: [245, 247, 252] }, columnStyles: o.cs || {},
+      didParseCell: d => { if (d.section === 'body' && col[d.cell.raw]) { d.cell.styles.textColor = col[d.cell.raw]; d.cell.styles.fontStyle = 'bold'; } } });
+    y = doc.lastAutoTable.finalY + 12;
+  };
+  // portada
+  doc.setFillColor(11, 26, 58); doc.rect(0, 0, W, 150, 'F');
+  doc.setTextColor(255); doc.setFont('helvetica', 'bold'); doc.setFontSize(22); doc.text(pdfSafe(R.title), M, 70);
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(11); doc.text(pdfSafe(R.meta.company), M, 95); doc.text('Clasificacion: CONFIDENCIAL', M, 113);
+  y = 180;
+  table(['Campo', 'Valor'], [['Cliente', R.meta.client], ['Analista', `${R.meta.analyst} (${R.meta.role})`], ['Fecha', R.date.toLocaleDateString('es-AR')], ['Fuente', S.file], ['Período', `${Engine.fmtTs(R.st.start)} a ${Engine.fmtTs(R.st.end)}`], ['Eventos analizados', String(R.st.total)], ['Incidentes', ['Crítico', 'Alto', 'Medio', 'Bajo'].map(s => `${s}: ${R.incs.filter(i => i.severity === s).length}`).join(' · ')]], { cs: { 0: { cellWidth: 120, fontStyle: 'bold' } } });
+  h2('1. Resumen ejecutivo' + (R.resumen.ai ? ' (redactado con IA)' : ''));
+  R.resumen.paras.forEach(p => text(p, { gap: 6 }));
+  h2('2. Hallazgos identificados');
+  table(['ID', 'Incidente', 'Criticidad', 'Ventana', 'Activos'], R.incs.map(i => [i.id, i.title, i.severity, `${Engine.fmtHM(i.start)}-${Engine.fmtHM(i.end)}`, i.hosts.join(', ')]), { cs: { 0: { cellWidth: 46 }, 2: { cellWidth: 56 }, 3: { cellWidth: 62 } } });
+  h2('3. Explicación técnica de cada hallazgo');
+  R.incs.forEach(i => {
+    h3(`${i.id} · ${i.title}`);
+    if (i.aiExplain) text(i.aiExplain + ' [IA]', { gap: 6 });
+    i.explainDet.forEach(f => { text(`${f.id} [${f.cat} · ${f.sev}] ${f.title}`, { bold: true, size: 9.5, gap: 1 }); text(`${f.text} MITRE: ${f.mitre.map(m => m.id).join(', ')}`, { size: 9, gap: 6, indent: 8 }); });
+  });
+  h2('4. Evidencias encontradas en los logs');
+  R.incs.forEach(i => {
+    h3(`${i.id} · ${i.evRows.length} eventos`);
+    const rows = opt.evidence ? i.evRows : i.evRows.slice(0, 8);
+    table(['Log_ID', 'Timestamp', 'Host', 'Event', 'Usuario', 'IP origen', 'Detalle'], rows.map(e => [e.id, e.tsStr, e.host, e.eid, e.user, e.ip, e.desc + (e.cmd ? ' | ' + e.cmd : '')]), { fs: 7, cs: { 0: { cellWidth: 52 }, 1: { cellWidth: 78 }, 3: { cellWidth: 38 } } });
+    if (!opt.evidence && i.evRows.length > 8) text(`(${i.evRows.length - 8} eventos más en la aplicación)`, { size: 8, color: [110, 120, 140] });
+  });
+  h2('5. Criticidad y justificación');
+  table(['ID', 'Criticidad', 'Justificación'], R.incs.map(i => [i.id, i.severity, i.reasons.join(' ')]), { cs: { 0: { cellWidth: 46 }, 1: { cellWidth: 60 } } });
+  table(['Nivel', 'Criterio'], CRITERIA.map(([s, t]) => [s, t]), { fs: 8, cs: { 0: { cellWidth: 60 } } });
+  h2('6. Posible impacto en la organización');
+  R.incs.forEach(i => { h3(i.id); if (i.aiImpact) text(i.aiImpact + ' [IA]'); else i.impact.forEach(x => text('• ' + x, { indent: 6, gap: 2 })); y += 4; });
+  h2('7. Plan de acción: investigar, contener y remediar');
+  R.incs.slice().sort((a, b) => b.sevN - a.sevN).forEach(i => {
+    h3(`${i.id} · prioridad ${i.severity}`);
+    table(['Fase', 'Acciones'], [['Investigar', i.actions.investigar.map(a => '• ' + a).join('\n')], ['Contener', i.actions.contener.map(a => '• ' + a).join('\n')], ['Remediar', i.actions.remediar.map(a => '• ' + a).join('\n')]], { cs: { 0: { cellWidth: 70, fontStyle: 'bold' } } });
+  });
+  h2('8. Recomendaciones generales de seguridad' + (R.recs.ai ? ' (redactado con IA)' : ''));
+  R.recs.list.forEach((r, k) => text(`${k + 1}. ${r}`, { indent: 4, gap: 3 }));
+  if (opt.annex) {
+    h2('Anexo A · Indicadores de compromiso (IoC)');
+    table(['Tipo', 'Valor', 'Incidente'], R.iocs.map(o => [o.type, o.value, o.inc]));
+    h2('Anexo B · MITRE ATT&CK');
+    table(['Táctica', 'Técnica', 'Incidentes'], R.mitre.map(m => [m.tactic, `${m.id} ${m.name}`, m.inc.join(', ')]));
+    h2('Anexo C · Observaciones de higiene');
+    R.hygiene.forEach(f => text(`• ${f.title}: ${f.explanation}`, { size: 9, indent: 4 }));
+    h2('Anexo D · Metodología');
+    text(`Normalización de columnas del SIEM; reglas de detección en seis categorías (fuerza bruta, inicios sospechosos, escalamiento, comandos y procesos, movimiento lateral, otras anomalías); correlación de hallazgos que comparten IP externa o cuenta en ${S.A.cfg.corrWindowMin} minutos. Cada conclusión conserva los Log_ID que la respaldan; la salida de la IA se valida contra esos Log_ID. Sin integración con Microsoft Sentinel.`);
+  }
+  const n = doc.getNumberOfPages();
+  for (let p = 1; p <= n; p++) { doc.setPage(p); doc.setFontSize(8); doc.setTextColor(130); doc.text(pdfSafe(`${R.meta.company} · Informe técnico SOC L2 · Confidencial`), M, H - 22); doc.text(`Página ${p} de ${n}`, W - M, H - 22, { align: 'right' }); }
+  const fname = `Informe_SOC_L2_${new Date().toISOString().slice(0, 10)}.pdf`;
+  const blob = doc.output('blob');
+  const dl = await capability('downloads');
+  if (dl) { await dl.save({ filename: fname, data: blob }); }
+  else doc.save(fname);
+}
+
+/* ---------------- Capacidades del entorno (claude.ai) ---------------- */
+const _caps = {};
+function capability(name) {
+  if (!(window.claude && typeof window.claude.use === 'function')) return Promise.resolve(null);
+  if (!_caps[name]) _caps[name] = window.claude.use(name).catch(() => null);
+  return _caps[name];
+}
+
+/* ---------------- IA integrada ---------------- */
+const AIcfg = Object.assign({ provider: 'gemini', key: '', model: '' }, store.get('ai', {}));
+const MODELS = { anthropic: 'claude-sonnet-5-5', openai: 'gpt-4o-mini', gemini: 'gemini-2.5-flash' };
+let SAMPLE = null;
+const AI = {
+  async init() { SAMPLE = await capability('sample'); if (SAMPLE && !store.get('ai', null)) AIcfg.provider = 'claude'; this.chip(); },
+  ready() { return AIcfg.provider === 'claude' ? !!SAMPLE : !!AIcfg.key; },
+  label() { return { claude: 'Claude (integrado)', anthropic: 'Anthropic API', openai: 'OpenAI API', gemini: 'Google Gemini API' }[AIcfg.provider]; },
+  chip() { $('#aiChip').className = 'chip ' + (this.ready() ? 'on' : ''); $('#aiChip').innerHTML = `<span class="dot"></span>IA: ${this.ready() ? this.label() : 'sin configurar'}`; },
+  async ask(system, messages, { onText, tools, json } = {}) {
+    if (!this.ready()) { aiConfig(); throw new Error('Configurá el proveedor de IA (indicador "IA" arriba a la derecha).'); }
+    const p = AIcfg.provider, model = AIcfg.model || MODELS[p];
+    if (p === 'claude') {
+      const input = messages.map((m, i) => ({ role: m.role, content: i === 0 ? `${system}\n\n${m.content}` : m.content }));
+      const r = await SAMPLE(input, { onText: onText ? ({ text }) => onText(text) : undefined, tools, modelTier: 'default', cache: false });
+      return r.text;
+    }
+    let url, opts;
+    if (p === 'anthropic') {
+      url = 'https://api.anthropic.com/v1/messages';
+      opts = { headers: { 'content-type': 'application/json', 'x-api-key': AIcfg.key, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' }, body: { model, max_tokens: 6000, system, messages } };
+    } else if (p === 'openai') {
+      url = 'https://api.openai.com/v1/chat/completions';
+      opts = { headers: { 'content-type': 'application/json', authorization: 'Bearer ' + AIcfg.key }, body: { model, messages: [{ role: 'system', content: system }, ...messages], ...(json ? { response_format: { type: 'json_object' } } : {}) } };
+    } else {
+      url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(AIcfg.key)}`;
+      opts = { headers: { 'content-type': 'application/json' }, body: { systemInstruction: { parts: [{ text: system }] }, contents: messages.map(m => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] })), generationConfig: json ? { responseMimeType: 'application/json' } : {} } };
+    }
+    const res = await fetch(url, { method: 'POST', headers: opts.headers, body: JSON.stringify(opts.body) });
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(j.error?.message || `HTTP ${res.status}`);
+    const out = p === 'anthropic' ? j.content?.map(c => c.text || '').join('') : p === 'openai' ? j.choices?.[0]?.message?.content : j.candidates?.[0]?.content?.parts?.map(x => x.text || '').join('');
+    if (onText) onText(out || '');
+    return out || '';
+  },
+};
+const SYS = `Sos un Analista SOC Nivel 2 de una consultora de ciberseguridad en Estocolmo, Suecia. Analizás logs exportados del SIEM de un cliente.
+REGLAS ESTRICTAS DE RIGOR:
+1. Usá ÚNICAMENTE los registros y hallazgos que se te entregan. No inventes eventos, IPs, usuarios, archivos, horarios ni cifras.
+2. Toda afirmación sobre actividad debe citar al menos un Log_ID real del dataset (formato exacto, p. ej. EVT-00123).
+3. Si algo no puede afirmarse con los registros, decilo explícitamente ("no hay evidencia en los logs").
+4. Escribí en español claro y profesional.`;
+function aiContext({ full = true } = {}) {
+  const A = S.A, fs = flaggedSev();
+  const ev = (full && S.events.length <= 3000 ? S.events : S.events.filter(e => fs.has(e.idx) || !/informational/i.test(e.sev)));
+  const csv = ev.map(e => [e.id, e.tsStr, e.host, e.eid, e.user, e.ip, e.dest, e.src, e.desc, e.cmd, e.result, e.sev].map(x => String(x).replace(/\|/g, '/')).join('|')).join('\n');
+  const inc = A.incidents.map(i => ({ id: i.id, titulo: i.title, criticidad: i.severity, justificacion: i.reasons, impacto: i.impact, activos: i.hosts, cuentas: i.users, ventana: `${Engine.fmtTs(i.start)} - ${Engine.fmtTs(i.end)}`,
+    hallazgos: i.findings.map(f => ({ id: f.id, categoria: f.category, criticidad: f.severity, titulo: f.title, explicacion: f.explanation, evidencia: f.evidence.map(k => S.events[k].id), mitre: f.mitre.map(m => m.id) })) }));
+  return `ARCHIVO: ${S.file}\nEVENTOS TOTALES: ${S.events.length} (${Engine.fmtTs(A.stats.start)} a ${Engine.fmtTs(A.stats.end)})
+INCIDENTES DETECTADOS POR EL MOTOR DE REGLAS (JSON):\n${JSON.stringify(inc)}
+OBSERVACIONES DE HIGIENE: ${JSON.stringify(A.hygiene.map(f => ({ titulo: f.title, explicacion: f.explanation })))}
+REGISTROS DEL SIEM (${ev.length}${ev.length < S.events.length ? ' relevantes de ' + S.events.length : ''}) · columnas: Log_ID|Timestamp|Hostname|Event_ID|User|Source_IP|Destination|Log_Source|Event_Description|Process_CommandLine|Result|Severity
+${csv}`;
+}
+function parseJSON(t) { const a = t.indexOf('{'), b = t.lastIndexOf('}'); if (a < 0 || b < 0) throw new Error('La IA no devolvió JSON válido.'); return JSON.parse(t.slice(a, b + 1)); }
+const idSet = () => new Set(S.events.map(e => e.id));
+function checkIds(txt) { const ids = idSet(); const found = [...new Set(String(txt).match(/\b[A-Z]{2,6}-\d{3,7}\b/g) || [])].filter(x => !/^(INC|H)-/.test(x)); return { ok: found.filter(x => ids.has(x)), bad: found.filter(x => !ids.has(x)) }; }
+
+async function aiReview() {
+  const box = $('#aiRev'); const b = $('#aiRevBtn');
+  b.disabled = true; b.innerHTML = '<span class="spin"></span> Analizando…';
+  box.innerHTML = `<div class="callout ai" style="margin-bottom:16px"><span class="spin"></span> La IA está revisando los ${S.events.length} registros y los incidentes detectados…</div>`;
+  try {
+    const out = await AI.ask(SYS, [{ role: 'user', content: `${aiContext()}
+
+TAREA: Revisá críticamente el análisis del motor de reglas como Analista SOC N2.
+1) ¿Hubo uno o varios incidentes? Fundamentá con Log_ID.
+2) Para cada incidente indicá si estás de acuerdo con la criticidad y por qué.
+3) Buscá en los registros actividad sospechosa que el motor NO haya incluido. Solo reportala si hay Log_ID concretos; si no encontrás nada, devolvé la lista vacía.
+Respondé SOLO con JSON con esta forma exacta:
+{"conclusion":"texto","validaciones":[{"incidente":"INC-01","de_acuerdo":true,"comentario":"texto con Log_ID"}],"hallazgos_adicionales":[{"descripcion":"texto","criticidad":"Crítico|Alto|Medio|Bajo","log_ids":["EVT-..."]}]}` }], { json: true });
+    const r = parseJSON(out);
+    const ids = idSet();
+    (r.hallazgos_adicionales || []).forEach(h => { h.valid = (h.log_ids || []).filter(x => ids.has(x)); h.invalid = (h.log_ids || []).filter(x => !ids.has(x)); h.verified = h.valid.length > 0 && !h.invalid.length; });
+    (r.validaciones || []).forEach(v => v.check = checkIds(v.comentario));
+    r.check = checkIds(r.conclusion);
+    S.aiReview = r; renderAIReview();
+  } catch (e) { box.innerHTML = `<div class="callout warn" style="margin-bottom:16px">IA: ${esc(e.message || e.code || e)}</div>`; }
+  b.disabled = false; b.innerHTML = '✦ Revisar análisis con IA';
+}
+function renderAIReview() {
+  const r = S.aiReview, box = $('#aiRev'); if (!box || !r) return;
+  const bad = c => c && c.bad.length ? `<span style="color:#ffb070"> ⚠ Log_ID inexistentes: ${c.bad.join(', ')}</span>` : '';
+  const idMap = new Map(S.events.map(e => [e.id, e.idx]));
+  box.innerHTML = `<div class="callout ai" style="margin-bottom:16px"><h3>✦ Revisión de la IA <span class="dim" style="font-weight:400;font-size:12px">· ${AI.label()} · los Log_ID citados se verificaron contra el Excel</span></h3>
+    <p>${esc(r.conclusion)}${bad(r.check)}</p>
+    ${(r.validaciones || []).length ? `<ul class="clean">${r.validaciones.map(v => `<li><b>${esc(v.incidente)}</b> ${v.de_acuerdo ? '✓ de acuerdo' : '✗ en desacuerdo'}: ${esc(v.comentario)}${bad(v.check)}</li>`).join('')}</ul>` : ''}
+    <h3 style="margin-top:10px">Hallazgos adicionales propuestos</h3>
+    ${(r.hallazgos_adicionales || []).length ? r.hallazgos_adicionales.map(h => `<div class="find"><div class="h">${['Crítico', 'Alto', 'Medio', 'Bajo'].includes(h.criticidad) ? sevB(h.criticidad) : ''}<b>${esc(h.descripcion)}</b></div>
+      <div>${h.valid.map(x => `<button class="evlink" onclick="showEvent(${idMap.get(x)})">${esc(x)}</button>`).join('')} ${h.verified ? '<span class="tag" style="color:#4ade80">evidencia verificada</span>' : `<span class="tag" style="color:#ffb070">no verificado${h.invalid.length ? ': ' + esc(h.invalid.join(', ')) + ' no existen' : ': sin Log_ID'} · descartar</span>`}</div></div>`).join('') : '<p class="muted">La IA no encontró actividad adicional respaldada por los registros.</p>'}
+  </div>`;
+}
+async function aiWriteReport() {
+  const b = $('#aiRepBtn'), st = $('#aiRepStatus');
+  b.disabled = true; b.innerHTML = '<span class="spin"></span> Redactando…';
+  st.innerHTML = `<div class="callout ai" style="margin-bottom:12px"><span class="spin"></span> La IA está redactando el resumen ejecutivo, las explicaciones técnicas, el impacto y las recomendaciones a partir de los hallazgos…</div>`;
+  try {
+    const out = await AI.ask(SYS, [{ role: 'user', content: `${aiContext({ full: false })}
+
+TAREA: Redactá las partes narrativas del informe técnico para el cliente. Basate SOLO en los incidentes y registros anteriores y citá Log_ID.
+- resumen_ejecutivo: 2 a 3 párrafos para la gerencia (sin jerga), con cuántos incidentes hubo, cuáles son críticos y qué se recomienda hacer ya.
+- incidentes: para CADA incidente (${S.A.incidents.map(i => i.id).join(', ')}) una explicacion_tecnica (un párrafo que reconstruya la secuencia del ataque citando Log_ID) y un impacto (consecuencias posibles para la organización).
+- recomendaciones: de 6 a 10 recomendaciones generales de seguridad, concretas y priorizadas, derivadas de lo observado.
+Respondé SOLO con JSON: {"resumen_ejecutivo":"...","incidentes":[{"id":"INC-01","explicacion_tecnica":"...","impacto":"..."}],"recomendaciones":["..."]}` }], { json: true });
+    const r = parseJSON(out);
+    const all = JSON.stringify(r); const c = checkIds(all);
+    const known = new Set(S.A.incidents.map(i => i.id));
+    r.incidentes = (r.incidentes || []).filter(x => known.has(x.id));
+    if (c.bad.length) r._warn = `⚠ La IA citó Log_ID que no existen en el Excel (${c.bad.join(', ')}). Revisá o desactivá la redacción IA antes de exportar.`;
+    S.aiReport = r; S.useAI = true; toast(`Redacción IA lista · ${c.ok.length} Log_ID citados verificados`);
+    vInforme($('#view'));
+  } catch (e) { st.innerHTML = `<div class="callout warn" style="margin-bottom:12px">IA: ${esc(e.message || e.code || e)}</div>`; b.disabled = false; b.innerHTML = '✦ Redactar con IA'; }
+}
+
+/* Configuración del proveedor de IA (ventana emergente) */
+function aiConfig() {
+  const p = AIcfg.provider;
+  modal(`<div class="row" style="justify-content:space-between"><h2 style="margin:0">Configuración de IA</h2><button class="btn sm" onclick="closeModal()">Cerrar</button></div>
+  <p class="muted">La IA apoya el análisis y la redacción del informe. Recibe los registros del Excel, tiene la orden de citar Log_ID y no inventar, y sus respuestas se verifican contra el archivo.</p>
+  <div class="grid" style="gap:10px">
+    <label class="f">Proveedor<select id="aiP">
+      ${SAMPLE ? `<option value="claude" ${p === 'claude' ? 'selected' : ''}>Claude (integrado en claude.ai, sin API key)</option>` : ''}
+      <option value="gemini" ${p === 'gemini' ? 'selected' : ''}>Google Gemini (API key gratuita)</option>
+      <option value="anthropic" ${p === 'anthropic' ? 'selected' : ''}>Anthropic Claude (API key)</option>
+      <option value="openai" ${p === 'openai' ? 'selected' : ''}>OpenAI (API key)</option></select></label>
+    ${p !== 'claude' ? `<label class="f">API key<input type="password" id="aiK" value="${esc(AIcfg.key)}" placeholder="Pegá tu API key"></label>
+    <label class="f">Modelo<input type="text" id="aiM" value="${esc(AIcfg.model)}" placeholder="${MODELS[p]}"></label>
+    <p class="dim" style="font-size:12px;margin:0">La clave se guarda solo en este navegador y se envía directamente al proveedor. ${p === 'gemini' ? 'Podés obtener una gratis en aistudio.google.com.' : ''}</p>` : `<p class="dim" style="font-size:12px;margin:0">Usa Claude a través de claude.ai. La primera consulta pide tu autorización.</p>`}
+    <div><button class="btn primary" id="aiSave">Guardar</button></div>
+  </div>`);
+  $('#aiP').onchange = e => { AIcfg.provider = e.target.value; AIcfg.model = ''; store.set('ai', AIcfg); AI.chip(); aiConfig(); };
+  $('#aiSave').onclick = () => { const k = $('#aiK'), m = $('#aiM'); if (k) AIcfg.key = k.value.trim(); if (m) AIcfg.model = m.value.trim(); store.set('ai', AIcfg); AI.chip(); closeModal(); toast(AI.ready() ? 'IA configurada: ' + AI.label() : 'Falta la API key'); };
+}
+
+/* ---------------- Inicio ---------------- */
+document.addEventListener('DOMContentLoaded', () => {
+  Object.assign(S.meta, store.get('meta', {}));
+  $('#modal').addEventListener('click', e => { if (e.target.id === 'modal') closeModal(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+  $('#aiChip').onclick = e => { e.preventDefault(); aiConfig(); };
+  route(); AI.chip(); AI.init();
+});
+</script>
+</body>
+</html>
